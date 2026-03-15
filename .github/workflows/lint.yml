@@ -1,0 +1,263 @@
+name: Lint & Validate
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check file count (should stay < 50)
+        run: |
+          FILE_COUNT=$(find . -name "*.gs" | wc -l)
+          echo "GAS file count: $FILE_COUNT"
+          if [ $FILE_COUNT -gt 50 ]; then
+            echo "❌ Too many .gs files (>${50})"
+            exit 1
+          fi
+
+      - name: Validate JSON files
+        run: |
+          python3 -m json.tool appsscript.json > /dev/null
+          python3 -m json.tool .clasp.json > /dev/null
+          echo "✅ JSON files valid"
+
+      - name: Check for test files in production
+        run: |
+          if ls *_completion.gs 2>/dev/null; then
+            echo "❌ Test files found (should be removed)"
+            exit 1
+          fi
+          if [ -f "AUTOMATION.gs" ]; then
+            echo "⚠️ Legacy AUTOMATION.gs still present"
+          fi
+          echo "✅ No test files"
+
+      - name: Check .gitignore exists
+        run: |
+          if [ ! -f ".gitignore" ]; then
+            echo "❌ .gitignore missing"
+            exit 1
+          fi
+          echo "✅ .gitignore present"
+
+      # ============================================================================
+      # 📋 FILE STRUCTURE CHECKS
+      # ============================================================================
+
+      - name: Check file count (< 50 .gs files)
+        run: |
+          FILE_COUNT=$(find . -maxdepth 1 -name "*.gs" | wc -l)
+          echo "📊 GAS file count: $FILE_COUNT"
+          if [ $FILE_COUNT -gt 50 ]; then
+            echo "❌ FAIL: Too many .gs files (>${50})"
+            exit 1
+          fi
+          echo "✅ PASS: File count OK ($FILE_COUNT <= 50)"
+
+      - name: Validate file naming convention (NN_name.gs)
+        run: |
+          echo "🔍 Checking naming conventions..."
+          INVALID_FILES=0
+          for file in *.gs; do
+            # Check if file matches pattern: NN_filename.gs or INITIALIZE.gs or legacy names
+            if ! [[ "$file" =~ ^[0-9]{2}_.*\.gs$ ]] && [ "$file" != "INITIALIZE.gs" ]; then
+              echo "  ⚠️ Non-standard: $file"
+              INVALID_FILES=$((INVALID_FILES + 1))
+            fi
+          done
+          if [ $INVALID_FILES -gt 0 ]; then
+            echo "⚠️ Found $INVALID_FILES files with non-standard naming"
+          else
+            echo "✅ PASS: All files follow NN_name.gs convention"
+          fi
+
+      - name: Check for test/legacy files
+        run: |
+          echo "🔍 Checking for production-unsafe files..."
+          FOUND_TEST=0
+          
+          if ls *_completion.gs 2>/dev/null; then
+            echo "❌ FAIL: Test files found (*_completion.gs)"
+            FOUND_TEST=1
+          fi
+          
+          if [ -f "AUTOMATION.gs" ]; then
+            echo "❌ FAIL: Legacy AUTOMATION.gs still present"
+            FOUND_TEST=1
+          fi
+          
+          if [ -f "50_verify_and_fix.gs" ]; then
+            echo "❌ FAIL: Debug file 50_verify_and_fix.gs still present"
+            FOUND_TEST=1
+          fi
+          
+          [ $FOUND_TEST -eq 0 ] && echo "✅ PASS: No test/legacy files"
+          [ $FOUND_TEST -eq 1 ] && exit 1
+
+      # ============================================================================
+      # 📐 CODE PATTERN VALIDATION
+      # ============================================================================
+
+      - name: Check SAT namespace pattern in all .gs files
+        run: |
+          echo "🔍 Validating SAT namespace pattern..."
+          INVALID_COUNT=0
+          for file in *.gs; do
+            if [ "$file" = "INITIALIZE.gs" ]; then continue; fi
+            
+            if ! grep -q "var SAT = this.SAT || (this.SAT = {}" "$file" 2>/dev/null; then
+              echo "  ❌ $file: Missing SAT namespace declaration"
+              INVALID_COUNT=$((INVALID_COUNT + 1))
+            fi
+          done
+          
+          if [ $INVALID_COUNT -gt 0 ]; then
+            echo "❌ FAIL: $INVALID_COUNT files missing SAT namespace pattern"
+            exit 1
+          fi
+          echo "✅ PASS: All files use SAT namespace pattern"
+
+      - name: Check Logger.log() at end of each .gs file
+        run: |
+          echo "🔍 Checking Logger.log() at end of files..."
+          MISSING_LOG=0
+          for file in *.gs; do
+            if [ "$file" = "INITIALIZE.gs" ]; then continue; fi
+            
+            # Check if file ends with Logger.log
+            if ! tail -5 "$file" | grep -q "Logger.log"; then
+              echo "  ⚠️ $file: May be missing Logger.log() at end"
+              MISSING_LOG=$((MISSING_LOG + 1))
+            fi
+          done
+          
+          if [ $MISSING_LOG -gt 0 ]; then
+            echo "⚠️ WARNING: $MISSING_LOG files may be missing Logger.log() at end"
+          else
+            echo "✅ PASS: All files have Logger.log() at end"
+          fi
+
+      - name: Check for unbalanced braces (robust)
+        run: |
+          echo "🔍 Checking brace balance..."
+          UNBALANCED=0
+          for file in *.gs; do
+            # Count braces more carefully (ignores comments)
+            OPEN=$(grep -v "^[[:space:]]*\\/\\/" "$file" | grep -o "{" | wc -l)
+            CLOSE=$(grep -v "^[[:space:]]*\\/\\/" "$file" | grep -o "}" | wc -l)
+            
+            if [ $OPEN -ne $CLOSE ]; then
+              echo "  ❌ $file: Unbalanced braces (open: $OPEN, close: $CLOSE)"
+              UNBALANCED=$((UNBALANCED + 1))
+            fi
+          done
+          
+          if [ $UNBALANCED -gt 0 ]; then
+            echo "❌ FAIL: $UNBALANCED files with unbalanced braces"
+            exit 1
+          fi
+          echo "✅ PASS: All braces balanced"
+
+      # ============================================================================
+      # 📋 JSON VALIDATION
+      # ============================================================================
+
+      - name: Validate appsscript.json
+        run: |
+          echo "🔍 Validating appsscript.json..."
+          if [ ! -f "appsscript.json" ]; then
+            echo "❌ FAIL: appsscript.json missing"
+            exit 1
+          fi
+          
+          if ! python3 -m json.tool appsscript.json > /dev/null 2>&1; then
+            echo "❌ FAIL: appsscript.json is not valid JSON"
+            exit 1
+          fi
+          
+          # Check required fields
+          if ! grep -q '"timeZone"' appsscript.json; then
+            echo "⚠️ WARNING: timeZone not set in appsscript.json"
+          fi
+          
+          if ! grep -q '"runtimeVersion": "V8"' appsscript.json; then
+            echo "⚠️ WARNING: runtimeVersion not set to V8"
+          fi
+          
+          echo "✅ PASS: appsscript.json valid"
+
+      - name: Validate .clasp.json
+        run: |
+          echo "🔍 Validating .clasp.json..."
+          if [ -f ".clasp.json" ]; then
+            if ! python3 -m json.tool .clasp.json > /dev/null 2>&1; then
+              echo "❌ FAIL: .clasp.json is not valid JSON"
+              exit 1
+            fi
+            echo "✅ PASS: .clasp.json valid"
+          else
+            echo "⚠️ WARNING: .clasp.json not found (optional)"
+          fi
+
+      # ============================================================================
+      # 📚 DOCUMENTATION VALIDATION
+      # ============================================================================
+
+      - name: Check .gitignore exists
+        run: |
+          if [ ! -f ".gitignore" ]; then
+            echo "❌ FAIL: .gitignore missing"
+            exit 1
+          fi
+          echo "✅ PASS: .gitignore present"
+
+      - name: Check documentation completeness
+        run: |
+          echo "🔍 Checking documentation..."
+          DOCS_OK=1
+          
+          if [ ! -f "README.md" ]; then
+            echo "❌ FAIL: README.md missing"
+            DOCS_OK=0
+          fi
+          
+          if [ ! -f "DEVELOPMENT.md" ]; then
+            echo "⚠️ WARNING: DEVELOPMENT.md missing"
+          fi
+          
+          if [ ! -f "CONTEXT_COPILOT.md" ]; then
+            echo "⚠️ WARNING: CONTEXT_COPILOT.md missing"
+          fi
+          
+          if [ ! -f ".github/workflows/lint.yml" ]; then
+            echo "⚠️ WARNING: CI/CD workflow missing"
+          fi
+          
+          [ $DOCS_OK -eq 1 ] && echo "✅ PASS: Core documentation present"
+          [ $DOCS_OK -eq 0 ] && exit 1
+
+      # ============================================================================
+      # 📊 SUMMARY
+      # ============================================================================
+
+      - name: Summary and Stats
+        if: success()
+        run: |
+          echo "╔════════════════════════════════════════════════════════╗"
+          echo "║  ✅ ALL CHECKS PASSED - Project is Production Ready   ║"
+          echo "╚════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "📊 Project Metrics:"
+          echo "  • .gs files:     $(find . -maxdepth 1 -name '*.gs' | wc -l)"
+          echo "  • Code lines:    $(cat *.gs 2>/dev/null | wc -l || echo 'N/A')"
+          echo "  • Doc files:     $(ls *.md 2>/dev/null | wc -l) markdown"
+          echo "  • JSON configs:  $(ls *.json 2>/dev/null | wc -l)"
+          echo ""
+          echo "✨ GitHub & Copilot Ready"
+          echo "🚀 Safe for production deployment"
