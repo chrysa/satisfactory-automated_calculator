@@ -1,0 +1,20 @@
+# Google Apps Script / clasp
+.clasp.json
+
+# Variables d'environnement
+.env
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea/
+*.swp
+*.swo
+vscode/

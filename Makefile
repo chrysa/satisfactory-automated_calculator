@@ -1,4 +1,4 @@
-.PHONY: help deploy test backup sync clean install push pull verify setup-env
+.PHONY: help deploy test backup sync clean install push pull verify setup-env open login
 
 # 🧰 S.A.T 2026 - Makefile for Deployment Management
 # Usage: make [target]
@@ -10,17 +10,20 @@ ifneq (,$(wildcard .env))
     export $(shell sed 's/=.*//' .env)
 endif
 
+# Assure que clasp est toujours trouvé (installé dans ~/.local via npm)
+export PATH := $(HOME)/.local/lib/npm-global/bin:$(PATH)
+
 # Variables (defaults from .env or command line)
 PROJECT_NAME ?= S.A.T
-VERSION ?= 2026.03
-SCRIPT_ID ?= 
-GITHUB_REPO ?= 
-GIT_BRANCH ?= main
-ENVIRONMENT ?= dev
-AUTO_BACKUP ?= true
-BACKUP_DIR ?= ./backups
-CLASP_PATH ?= clasp
-VERBOSE ?= false
+VERSION      ?= 2026.03
+SCRIPT_ID    ?=
+GITHUB_REPO  ?=
+GIT_BRANCH   ?= main
+ENVIRONMENT  ?= dev
+AUTO_BACKUP  ?= true
+BACKUP_DIR   ?= ./backups
+CLASP_PATH   ?= clasp
+VERBOSE      ?= false
 
 # Colors for output
 RED := \033[0;31m
@@ -86,7 +89,7 @@ env-show: ## Display loaded environment variables
 # 🚀 DEPLOYMENT COMMANDS
 # ============================================================================
 
-deploy: setup-env verify backup push install ## Complete deployment (setup → verify → backup → push → install)
+deploy: verify backup push ## Déploiement complet (verify → backup → push)
 	@echo "$(GREEN)✅ Deployment Complete!$(NC)"
 	@echo "$(YELLOW)Next steps:$(NC)"
 	@echo "  1. Go to your GSheet"
@@ -95,24 +98,25 @@ deploy: setup-env verify backup push install ## Complete deployment (setup → v
 
 verify: ## Verify workspace and files integrity
 	@echo "$(BLUE)🔍 Verifying workspace...$(NC)"
-	@if [ -f "00_core_config.gs" ]; then echo "$(GREEN)✓ Core config found$(NC)"; else echo "$(RED)✗ Core config missing$(NC)"; exit 1; fi
-	@if [ -f "appsscript.json" ]; then echo "$(GREEN)✓ Config found$(NC)"; else echo "$(RED)✗ Config missing$(NC)"; exit 1; fi
-	@if [ -f "README.md" ]; then echo "$(GREEN)✓ README found$(NC)"; else echo "$(RED)✗ README missing$(NC)"; exit 1; fi
+	@if [ -f "src/00_core_config.gs" ]; then echo "$(GREEN)✓ Core config found$(NC)"; else echo "$(RED)✗ Core config missing$(NC)"; exit 1; fi
+	@if [ -f "src/appsscript.json" ]; then echo "$(GREEN)✓ appsscript.json found$(NC)"; else echo "$(RED)✗ appsscript.json missing$(NC)"; exit 1; fi
+	@if [ -f "README.md" ]; then echo "$(GREEN)✓ README found$(NC)"; else echo "$(YELLOW)⚠ README missing$(NC)"; fi
 	@if [ -f ".env" ]; then echo "$(GREEN)✓ .env found$(NC)"; else echo "$(YELLOW)⚠ .env not found$(NC)"; fi
-	@if [ -d "src" ]; then echo "$(GREEN)✓ src/ directory found$(NC)"; else echo "$(RED)✗ src/ directory missing$(NC)"; exit 1; fi
+	@if [ -f ".clasp.json" ]; then echo "$(GREEN)✓ .clasp.json found$(NC)"; else echo "$(RED)✗ .clasp.json missing$(NC)"; exit 1; fi
 	@FILE_COUNT=$$(ls -1 src/*.gs 2>/dev/null | wc -l) && \
 	if [ $$FILE_COUNT -ge 20 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 20+)$(NC)"; exit 1; fi
 	@echo "$(GREEN)✅ Verification passed!$(NC)"
 
-push: setup-env verify ## Push code to Google Apps Script (uses SCRIPT_ID from .env)
+push: verify ## Push code to Google Apps Script
 	@echo "$(BLUE)📤 Pushing code to Apps Script...$(NC)"
-	@if [ -z "$(SCRIPT_ID)" ]; then \
-		echo "$(RED)❌ SCRIPT_ID not set in .env$(NC)"; \
-		echo "$(YELLOW)  Edit .env and add: SCRIPT_ID=your-script-id$(NC)"; \
-		exit 1; \
-	fi
-	@$(CLASP_PATH) push
+	@$(CLASP_PATH) push --force
 	@echo "$(GREEN)✅ Code pushed!$(NC)"
+
+open: ## Ouvrir le projet dans le navigateur (Apps Script + Sheet)
+	@$(CLASP_PATH) open
+
+login: ## S'authentifier avec Google
+	@$(CLASP_PATH) login
 
 install: ## Run installation after push
 	@echo "$(BLUE)⚙️ Running installation...$(NC)"
@@ -257,43 +261,6 @@ versions: ## Display version information
 	@echo "$(YELLOW)Release Date:$(NC) 21 février 2026"
 	@echo "$(YELLOW)Status:$(NC) ✅ Production Ready"
 	@echo "$(YELLOW)Quality:$(NC) ⭐⭐⭐⭐⭐ Excellent"
-
-# ============================================================================
-# 🎯 COMMON WORKFLOWS
-# ============================================================================
-
-quick-deploy: verify push ## Quick deploy (verify + push)
-	@echo "$(GREEN)✅ Quick deploy complete!$(NC)"
-
-full-backup: backup sync ## Full backup (backup + sync to git)
-	@echo "$(GREEN)✅ Full backup complete!$(NC)"
-
-pattern-check: ## Check SAT namespace and code patterns
-	@echo "$(BLUE)🔍 Checking SAT code patterns...$(NC)"
-	@INVALID=0; \
-	for file in *.gs; do \
-		if [ "$$file" = "INITIALIZE.gs" ]; then continue; fi; \
-		if ! grep -q "var SAT = this.SAT || (this.SAT = {})" "$$file" 2>/dev/null; then \
-			echo "$(RED)❌ $$file: Missing SAT namespace$(NC)"; \
-			INVALID=$$((INVALID + 1)); \
-		fi; \
-		if ! tail -5 "$$file" | grep -q "Logger.log"; then \
-			echo "$(YELLOW)⚠️ $$file: Missing Logger.log at end$(NC)"; \
-		fi; \
-	done; \
-	if [ $$INVALID -gt 0 ]; then \
-		echo "$(RED)❌ Found $$INVALID files with issues$(NC)"; \
-		exit 1; \
-	fi; \
-	echo "$(GREEN)✅ All patterns valid!$(NC)"
-
-pre-commit: pattern-check verify ## Check everything before commit
-	@echo "$(BLUE)✨ Pre-commit validation...$(NC)"
-	@echo "$(GREEN)✓ SAT patterns: OK$(NC)"
-	@echo "$(GREEN)✓ File structure: OK$(NC)"
-	@echo "$(GREEN)✓ Configuration: OK$(NC)"
-	@echo "$(YELLOW)Now run: git add . && git commit -m 'Your message'$(NC)"
-	@echo "$(GREEN)✅ Ready to push!$(NC)"
 
 # ============================================================================
 # 🎯 COMMON WORKFLOWS

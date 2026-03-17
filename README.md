@@ -1,123 +1,129 @@
-# 🧰 SAT ASSIST 2026 - Production Ready
+# 🏭 S.A.T. — Satisfactory Automated Tracker
 
-**Version**: 2026.03 | **Status**: ✅ Production Ready | **Files**: 33 modules | **LOC**: 9K production code
+**Version app**: 3.2 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
 
-Factory production management system for Google Sheets. Intelligent tracking, error detection, intuitive dashboard.
+Calculateur de production pour Satisfactory, basé sur Google Sheets / Apps Script. Saisie par recette officielle, calcul automatique des taux, alertes intelligentes, dashboard en temps réel.
 
 ---
 
-## 📦 Project Structure
+## 📦 Structure du projet
 
 ```
 satisfactory_automated_calculator/
-├── src/                    ← All Google Apps Script code (33 files)
-│   ├── 00_bootstrap.gs     ← Layer 0: Bootstrap system  
-│   ├── 00-02_core_*.gs     ← Layer 1: Core APIs
-│   ├── 04-12_*.gs          ← Layer 2: Business logic
-│   ├── 20-42_*.gs          ← Layer 3-4: Features & UI
-│   └── 50-53_app_*.gs      ← Layer 5: Application entry points
-├── README.md               ← This file
-├── COPILOT_GUIDE.md        ← GitHub Copilot patterns & workflows
-├── appsscript.json         ← Google Apps Script project config
-├── .clasp.json             ← clasp configuration
-├── Makefile                ← Development commands
-└── .gitignore              ← Git configuration
+├── src/                        ← Code Google Apps Script (8 fichiers)
+│   ├── 00_core_config.gs       ← Config app + loader de données de jeu
+│   ├── 01_data_v1_1.gs         ← Données Satisfactory 1.1 (machines, ressources, recettes)
+│   ├── 10_engine.gs            ← Moteur de calcul (taux, flags, erreurs)
+│   ├── 20_ui_charts.gs         ← Graphiques du dashboard
+│   ├── 30_recalc.gs            ← Point d'entrée recalcul
+│   ├── 40_install.gs           ← Installation / réinitialisation
+│   ├── 41_triggers.gs          ← Déclencheurs (onOpen, onEdit)
+│   └── 42_menu.gs              ← Menu SAT dans Google Sheets
+├── README.md                   ← Ce fichier
+├── GUIDE_UTILISATEUR.md        ← Guide d'utilisation complet
+├── COPILOT_GUIDE.md            ← Patterns de code pour GitHub Copilot
+├── appsscript.json             ← Config Google Apps Script
+├── .clasp.json                 ← Config clasp (déploiement)
+├── Makefile                    ← Commandes de développement
+└── .gitignore
 ```
 
 ---
 
-## ✨ What's New (v2026.03)
+## ✨ Nouveautés v3.2 (16 mars 2026)
 
-| Feature | Status |
-|---------|--------|
-| **Contextual Menu** | ✅ Menu adapts dynamically to sheet state |
-| **Retry Pattern** | ✅ `SAT_Resilience_Retry()` - Exponential backoff + jitter |
-| **Minimal Docs** | ✅ 2 files only: README.md + COPILOT_GUIDE.md |
-| **Clean Architecture** | ✅ 33 files, 9K LOC, zero legacy code |
+| Fonctionnalité | Statut |
+|---|---|
+| **Noms FR officiels** | ✅ Machines et ressources conformes à wiki.gg/fr |
+| **Modularité version jeu** | ✅ `SAT.DATA['1.1']` — prêt pour les futures versions |
+| **Architecture allégée** | ✅ 8 fichiers, zéro héritage legacy |
+| **Recettes par nom** | ✅ Saisie par recette officielle, taux calculés automatiquement |
+| **Feuilles FR** | ✅ Dashboard, Production, Recettes, Ressources, Machines, Étages |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Démarrage rapide
 
-### 1. Deploy to Google Sheets
+### 1. Déployer sur Google Sheets
 ```bash
-# Authenticate with Google
-clasp login
-
-# Push code to Google Apps Script
-clasp push
-
-# Or use make
-make deploy
+clasp login          # Authentification Google
+clasp push           # Envoyer le code
+# ou
+make push
 ```
 
-### 2. Open in Google Sheets
+### 2. Ouvrir le classeur
 ```bash
 clasp open
 ```
 
-### 3. Initialize
-- **Menu 🧰 → 📊 Données → 🧱 Installer structure**
-- Then add production data
+### 3. Initialiser
+- Menu **SAT → Réinstaller** pour créer toutes les feuilles
+- Saisir les lignes de production dans **🏭 Production**
 
 ---
 
-## 💻 Development
+## 💻 Développement
 
-### Install Dependencies
+### Prérequis
 ```bash
 npm install -g @google/clasp
-npm install
 ```
 
-### Build & Deploy
+### Commandes
 ```bash
-make deploy       # Full deployment
-make push         # Push code only
-make pull         # Pull from Apps Script
-make open         # Open in browser
-make watch        # Watch for changes
-make test         # Run tests if any
+make push         # Push vers Apps Script
+make pull         # Pull depuis Apps Script
+make open         # Ouvrir dans le navigateur
+make help         # Toutes les commandes
 make help         # Show all commands
 ```
 
 ---
 
-## 📚 Code Documentation
+## 📚 Documentation
 
-| File | Purpose |
-|------|---------|
-| **[COPILOT_GUIDE.md](COPILOT_GUIDE.md)** | GitHub Copilot patterns, code templates, workflows |
-| **src/** | 33 Google Apps Script modules organized by layer |
+| Fichier | Contenu |
+|---|---|
+| **[GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)** | Guide complet d'utilisation (saisie, calculs, feuilles) |
+| **[COPILOT_GUIDE.md](COPILOT_GUIDE.md)** | Patterns de code, templates, workflows pour développer |
 
 ---
 
-## 🏗️ 5-Layer Architecture
+## 🏗️ Architecture
 
-### Layer 0: Bootstrap
-- `00_bootstrap.gs` - Initialization guards, load order verification
+### Couche 0 — Config & Données
+- `00_core_config.gs` → `SAT.CFG` — configuration + utilitaires de base (`SAT.U`, `SAT.S`, `SAT.Log`, `SAT.loadGameData`)
+- `01_data_v1_1.gs` → `SAT.DATA['1.1']` — 18 machines, 95 ressources, 67 recettes (noms FR officiels)
 
-### Layer 1: Core APIs (7 files)
-- `00_core_config.gs` → `SAT.CFG` (centralized configuration)
-- `00_core_logging.gs` → `SAT.Log` (logging with emojis)
-- `01_core_resilience.gs` → `SAT.Resilience` (retry pattern, recovery)
-- `02_core_sheets.gs` → `SAT.S` (safe sheet access)
+### Couche 1 — Moteur
+- `10_engine.gs` → `SAT.Engine` — calcul des taux, détection de flags, index des recettes
 
-### Layer 2: Business Logic (8 files)
-- `10_core_etages.gs` → Floor/Stage management
-- `10_automation_*.gs` → Automation handlers
-- `11_automation_executor.gs` → Queue-based execution
-- `12_automation_scheduler.gs` → Scheduling
+### Couche 2 — Interface
+- `20_ui_charts.gs` → graphiques dashboard
+- `30_recalc.gs` → point d'entrée recalcul complet
 
-### Layer 3-4: Features (14 files)
-- UI components, forms, dashboards
-- Resilience monitoring and recovery
-- Ergonomic helpers and accessibility
+### Couche 3 — Application
+- `40_install.gs` → création de toutes les feuilles, validations
+- `41_triggers.gs` → `onOpen()`, `onEdit()`
+- `42_menu.gs` → menu **SAT** dans Google Sheets
 
-### Layer 5: Application (3 files)
-- `50_app_recalc.gs` → Recalculation engine
-- `51_app_install.gs` → Installation & setup
-- `52_app_triggers.gs` → Event handlers (onOpen, onEdit)
+---
+
+## 🔄 Mise à jour pour une nouvelle version de Satisfactory
+
+```bash
+# 1. Créer le fichier de données
+cp src/01_data_v1_1.gs src/01_data_v2_0.gs
+# Éditer SAT.DATA['2.0'] dans le nouveau fichier
+
+# 2. Changer la version dans la config
+# Dans 00_core_config.gs :
+#   GAME_VERSION: '2.0'
+
+# 3. Déployer
+make push
+```
 - `53_app_menu.gs` → **ENTRY POINT** with contextual menu
 
 ---

@@ -1,147 +1,132 @@
-/* 00_core_config.gs - Configuration globale S.A.T */
+/* ============================================================
+ * 00_core_config.gs — Configuration application SAT v3.2
+ * Contient uniquement la config de l'outil (feuilles, colonnes,
+ * pureté, version). Les données du jeu sont dans 01_data_vX_Y.gs.
+ *
+ * Pour mettre à jour vers une nouvelle version de Satisfactory :
+ *   1. Créer src/01_data_vX_Y.gs avec SAT.DATA['X.Y'] = {...}
+ *   2. Changer GAME_VERSION ci-dessous
+ * ============================================================ */
+
 var SAT = this.SAT || (this.SAT = {});
 
-SAT.CFG = SAT.CFG || {
-  VERSION: "S.A.T-2026.03",
+SAT.CFG = {
+  VERSION: '3.2',
 
+  // ── Version du jeu Satisfactory — change ici pour une MàJ ─
+  // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
+  GAME_VERSION: '1.1',
+
+  // ── Noms des onglets (ordre logique) ──────────────────────
   SHEETS: {
-    DASHBOARD: "📊 Dashboard",
-    PRODUCTION: "📈 Production",
-    RESOURCES: "📋 Ressources",
-    MACHINES: "🏗️ Machines",
-    FLOORS: "🏢 Étages"
+    PROD: '\u{1F3ED} Production',       // 1  ← onglet le plus utilisé
+    ETAG: '\u{1F3D7}\uFE0F \u00C9tages', // 2
+    DASH: '\u{1F4CA} Tableau de bord',   // 3
+    REC:  '\u{1F4D6} Recettes',          // 4
+    RES:  '\u{1F48E} Ressources',        // 5
+    MACH: '\u2699\uFE0F Machines'        // 6
   },
 
-  THEME: {
-    bg: "#F5F5F5",
-    header: "#1E88E5",
-    headerText: "#FFFFFF",
-    accent: "#42A5F5"
+  // ── Colonnes feuille Production (1-based) ─────────────────
+  // A(1)   B(2)      C(3)      D(4)         E(5)       F(6)  G(7)  H(8)
+  // Étage  Machine   Recette   Qt/min OUT   Qt/min IN   Nb   OC%  Pureté
+  // I(9)    J(10)
+  // Flags   Cause
+  C: {
+    ETAGE:    1,   // A — \u00C9tage (dropdown depuis 🏗️ \u00C9tages)
+    MACHINE:  2,   // B — Machine (dropdown depuis ⚙️ Machines)
+    RECIPE:   3,   // C — Recette (dropdown depuis 📖 Recettes)
+    OUT_RATE: 4,   // D — Qt/min OUT (auto depuis Recette × OC × Nb)
+    IN_RATE:  5,   // E — Qt/min IN  (auto depuis Recette × OC × Nb)
+    NB:       6,   // F — Nb machines
+    OC:       7,   // G — Overclock %
+    PUR:      8,   // H — Pureté (extracteurs seulement)
+    FLAGS:    9,   // I — Flags auto
+    CAUSE:    10   // J — Cause erreur
   },
 
-  PRODUCTION: {
-    HEADER_ROW: 2,
-    DATA_ROW: 3,
-    COLS: {
-      ETAGE: 1,
-      MACHINE: 2,
-      IN_RES: 3,
-      IN_RATE: 4,
-      OUT_RES: 5,
-      OUT_RATE: 6,
-      NB: 7,
-      NOTE: 8
-    }
-  },
+  HDR_ROW: 1,
+  DAT_ROW: 2,
 
-  RESOURCES: {
-    HEADER_ROW: 1,
-    DATA_ROW: 2,
-    COLS: { NAME: 1, TYPE: 2, NOTE: 3 }
-  },
+  PURITY: { 'Impur': 0.5, 'Normal': 1.0, 'Pur': 2.0 },
 
-  MACHINES: {
-    HEADER_ROW: 1,
-    DATA_ROW: 2,
-    COLS: { NAME: 1, HEIGHT: 2, WIDTH: 3, LENGTH: 4, NOTE: 5 }
-  },
+  // ── Index des recettes par nom (construit au runtime) ──────
+  RECIPE_INDEX: null,
 
-  FLOORS: {
-    HEADER_ROW: 1,
-    DATA_ROW: 2,
-    COLS: { NAME: 1, RESOURCE: 2, MACHINE: 3, QTY: 4, RATE: 5, TOTAL: 6 }
-  },
+  // ── Données du jeu (injectées depuis 01_data_vX_Y.gs) ─────
+  // Accéder via SAT.CFG.MACHINES, SAT.CFG.RESOURCES, SAT.CFG.RECIPES
+  // après appel de SAT.loadGameData() (auto au 1er getRecipeIndex())
+  MACHINES:  null,
+  RESOURCES: null,
+  RECIPES:   null
+};
 
-  DASHBOARD: {
-    TITLE_ROW: 1,
-    STATS_ROW: 3,
-    CHARTS_ROW: 8
-  },
-
-  SEED: {
-    BASE_RESOURCES: [
-      // Ressources Pures
-      ["Minerai de Fer", "Pur", "Minerai rouge"],
-      ["Minerai de Cuivre", "Pur", "Minerai brun"],
-      ["Charbon", "Pur", "Minerai noir"],
-      ["Calcaire", "Pur", "Minerai blanc"],
-      ["Minerai de Cathium", "Pur", "Minerai bleu"],
-      ["Soufre", "Pur", "Minerai jaune"],
-      ["Bauxite", "Pur", "Minerai orange"],
-      ["Uranium", "Pur", "Minerai radioactif"],
-      ["Silice", "Pur", "Minerai sableux"],
-      
-      // Ressources Organiques
-      ["Bois", "Organique", "Des arbres"],
-      ["Feuilles", "Organique", "Des arbres"],
-      ["Mycélium", "Organique", "Souterrain"],
-      ["Pétales de Fleur", "Organique", "Plantes colorées"],
-      
-      // Fluides
-      ["Pétrole Brut", "Fluide", "Pétrole brut"],
-      ["Eau", "Fluide", "Ressource essentielle"],
-      ["Gaz Azote", "Fluide", "Atmosphérique"],
-      
-      // Produits Raffinés
-      ["Plaque de Fer", "Raffiné", "Depuis minerai de fer"],
-      ["Tige de Fer", "Raffiné", "Depuis minerai de fer"],
-      ["Feuille de Cuivre", "Raffiné", "Depuis minerai de cuivre"],
-      ["Béton", "Raffiné", "Depuis calcaire"],
-      ["Lingot d'Acier", "Raffiné", "Depuis charbon+fer"],
-      ["Plastique", "Raffiné", "Depuis pétrole brut"],
-      ["Caoutchouc", "Raffiné", "Depuis pétrole brut"],
-      ["Tissu", "Raffiné", "Depuis feuilles/pétales"],
-      ["Débris d'Aluminium", "Raffiné", "Depuis bauxite"],
-      
-      // Produits Avancés
-      ["Poutre Industrielle Blindée", "Avancé", "Construction complexe"],
-      ["Plaque de Fer Renforcée", "Avancé", "Objet de luxe"],
-      ["Moteur Modulaire", "Avancé", "Haute technologie"],
-      ["Turbocompresseur", "Avancé", "Haute technologie"],
-      ["Cristal d'Énergie", "Avancé", "Spécial"],
-      
-      // Carburants
-      ["Biocombustible Solide", "Carburant", "Combustible"],
-      ["Pétrole Emballé", "Carburant", "Carburant liquide"],
-      ["Résidu de Pétrole Lourd Emballé", "Carburant", "Sous-produit"],
-      
-      // Spécial
-      ["Cristal de Quartz", "Pur", "Minéral"],
-      ["Cristal d'Amélioration", "Défense", "Amélioration HUB"]
-    ],
-
-    MACHINES: [
-      ["Mineur Mk.1", 8, 8, 9, "Extraction basique"],
-      ["Mineur Mk.2", 8, 8, 9, "Extraction plus rapide"],
-      ["Mineur Mk.3", 8, 8, 9, "Extraction élite"],
-      ["Pompe à Eau", 10, 10, 10, "Pompe l'eau"],
-      ["Pompe à Pétrole", 10, 10, 10, "Pompe le pétrole"],
-      
-      ["Fonderie", 9, 10, 9, "Minerai + charbon → lingot"],
-      ["Creuset", 12, 15, 12, "Fonte avancée"],
-      ["Constructeur", 8, 8, 10, "Fabrique basique"],
-      ["Assembleur", 11, 9, 16, "Assemblage complexe"],
-      ["Mixeur", 15, 18, 16, "Mélange fluides+solides"],
-      ["Emballeur", 10, 10, 10, "Empaquette les fluides"],
-      ["Dépakeur", 10, 10, 10, "Dépaquette les fluides"],
-      
-      ["Raffinerie", 30, 10, 22, "Traitement du pétrole"],
-      ["Extraction par Fracturation", 28, 18, 24, "Fluides rocheux"],
-      ["Extraction d'Eau Distillée", 12, 12, 12, "Eau pure"],
-      
-      ["Accélérateur de Particules", 32, 24, 38, "Installation recherche"],
-      ["Convertisseur", 18, 16, 16, "Conversion exotique"],
-      ["Encodeur Quantique", 18, 22, 50, "Technologie avancée"],
-      ["Réacteur à Singularité", 38, 38, 40, "Puissance fin-game"],
-      
-      ["Fabricateur", 12, 18, 20, "Fabrication avancée"],
-      ["Constructeur Automatique", 15, 20, 25, "Recette automatique"],
-      ["Collecteur", 10, 10, 10, "Routage multi-chemins"],
-      
-      ["Centrale Nucléaire", 39, 36, 43, "Puissance extrême"],
-      ["Biolaboratoire", 14, 14, 14, "Traitement biologique"]
-    ],
-
-    ETAGES: []  // Vide - l'utilisateur crée la structure
+// ── Helpers ────────────────────────────────────────────────────────────
+SAT.U = {
+  str:  function(v) { return (v === null || v === undefined) ? '' : String(v).trim(); },
+  num:  function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; },
+  norm: function(s) {
+    return String(s || '').toLowerCase().trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
+};
+
+SAT.S = {
+  get: function(name) {
+    return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  },
+  ensure: function(name) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    return ss.getSheetByName(name) || ss.insertSheet(name);
+  }
+};
+
+SAT.Log = {
+  info:  function(m) { Logger.log('     ' + m); },
+  ok:    function(m) { Logger.log('  OK ' + m); },
+  warn:  function(m) { Logger.log('  /!\\ ' + m); },
+  error: function(m) { Logger.log('  ERR ' + m); }
+};
+
+/**
+ * Charge les données du jeu (MACHINES, RESOURCES, RECIPES) depuis
+ * SAT.DATA[GAME_VERSION] dans SAT.CFG. Appelé automatiquement au
+ * premier getRecipeIndex(). Peut aussi être appelé explicitement.
+ */
+SAT.loadGameData = function() {
+  var v = SAT.CFG.GAME_VERSION;
+  var d = SAT.DATA && SAT.DATA[v];
+  if (!d) throw new Error('SAT: données introuvables pour Satisfactory v' + v +
+    '. Vérifier que 01_data_v' + v.replace('.', '_') + '.gs est présent.');
+  SAT.CFG.MACHINES  = d.MACHINES;
+  SAT.CFG.RESOURCES = d.RESOURCES;
+  SAT.CFG.RECIPES   = d.RECIPES;
+  SAT.CFG.RECIPE_INDEX = null; // reset index si rechargement
+  SAT.Log.info('Données jeu v' + v + ' chargées (' +
+    d.MACHINES.length + ' machines, ' + d.RESOURCES.length +
+    ' ressources, ' + d.RECIPES.length + ' recettes)');
+};
+
+/**
+ * Construit l'index des recettes (nom -> objet recette) au premier appel.
+ * Charge automatiquement les données de jeu si nécessaire.
+ */
+SAT.getRecipeIndex = function() {
+  if (!SAT.CFG.RECIPES) SAT.loadGameData();
+  if (SAT.CFG.RECIPE_INDEX) return SAT.CFG.RECIPE_INDEX;
+  var idx = {};
+  SAT.CFG.RECIPES.forEach(function(r) {
+    // r = [name, machine, inRes1, inRate1, inRes2, inRate2, outRes1, outRate1, outRes2, outRate2, tier]
+    idx[r[0]] = {
+      name:     r[0],
+      machine:  r[1],
+      inRes1:   r[2],  inRate1:  r[3],
+      inRes2:   r[4],  inRate2:  r[5],
+      outRes1:  r[6],  outRate1: r[7],
+      outRes2:  r[8],  outRate2: r[9],
+      tier:     r[10]
+    };
+  });
+  SAT.CFG.RECIPE_INDEX = idx;
+  return idx;
 };
