@@ -1,14 +1,14 @@
 /* ============================================================
- * 40_install.gs — Installation complète SAT v3.2
+ * 40_install.gs — Installation complète SAT v3.3
  * SAT_install() crée / recrée toutes les feuilles proprement.
  *
  * Feuilles créées (dans l'ordre d'affichage) :
  *   1. 📊 Dashboard
  *   2. 🏭 Production
- *   3. 📖 Recettes        ← NOUVEAU : toutes les recettes wiki 1.1
+ *   3. 📖 Recettes        ← toutes les recettes wiki 1.1
  *   4. 💎 Ressources
  *   5. ⚙️ Machines
- *   6. 🏗️ Étages           ← vide, à remplir par l'utilisateur
+ *   6. 🏗️ Étages           ← pré-remplie avec 3 exemples
  *
  * Architecture Production :
  *   A Étage | B Machine | C Recette | D Qt/min OUT | E Qt/min IN
@@ -29,6 +29,9 @@ function SAT_install() {
   SAT.loadGameData();
 
   Logger.log('\n=== SAT Installation v' + cfg.VERSION + ' (jeu v' + cfg.GAME_VERSION + ') ===\n');
+
+  // Supprimer d'éventuels doublons d'onglets avant de recréer les feuilles
+  _deduplicateSheets();
 
   _installDashboard();
   _installProduction();
@@ -53,6 +56,9 @@ function SAT_install() {
     if (sh) ss.moveSheet(sh, i + 1);
   });
 
+  // Masquer les onglets de référence (accès via menu S.A.T.)
+  _hideRefSheets();
+
   // Activer le Dashboard
   var dash = ss.getSheetByName(cfg.SHEETS.DASH);
   if (dash) ss.setActiveSheet(dash);
@@ -64,6 +70,34 @@ function SAT_install() {
 
   Logger.log('=== Installation terminée v' + cfg.VERSION + ' ===\n');
   ss.toast('Installation SAT v' + cfg.VERSION + ' terminée !', 'S.A.T.', 5);
+}
+
+/**
+ * Supprime les onglets en double (même nom, garde le premier dans l'ordre des onglets).
+ * Appelé au début de SAT_install() et via menu "Nettoyer les doublons".
+ */
+function _deduplicateSheets() {
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var seen = {};
+  ss.getSheets().forEach(function(sh) {
+    var name = sh.getName();
+    if (seen[name]) {
+      try { ss.deleteSheet(sh); } catch(e) {}
+    } else {
+      seen[name] = true;
+    }
+  });
+}
+
+/** Masque les 3 onglets de référence (Recettes, Ressources, Machines). */
+function _hideRefSheets() {
+  var cfg = SAT.CFG;
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  [cfg.SHEETS.REC, cfg.SHEETS.RES, cfg.SHEETS.MACH].forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (sh) try { sh.hideSheet(); } catch(e) {}
+  });
+  SAT.Log.ok('Référentiels masqués');
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -182,8 +216,44 @@ function _installDashboard() {
     .setFontWeight('bold').setFontColor('#388E3C').setHorizontalAlignment('center');
   sh.getRange(13, 2, tips.length, 1).setFontColor('#424242').setFontSize(11);
 
-  // Dimensions
-  sh.setColumnWidth(1, 260).setColumnWidth(2, 180).setColumnWidth(3, 80).setColumnWidth(4, 80);
+  // ── Changelog ────────────────────────────────────────────────────────────
+  var clRow = 21;
+  sh.getRange(clRow, 1, 1, 4).merge()
+    .setValue('  CHANGELOG')
+    .setBackground('#FFF3E0')
+    .setFontWeight('bold')
+    .setFontColor('#E65100')
+    .setFontSize(12);
+  sh.setRowHeight(clRow, 28);
+
+  var changelog = [
+    ['v3.3', 'mar 2026',    'Ligne effacée (Étage vide) → colonnes auto nettoyées automatiquement.'],
+    ['v3.3', 'mar 2026',    'Nouvelle ligne → OC=100 et Pureté=Normal pré-remplis automatiquement.'],
+    ['v3.3', 'mar 2026',    'Changement de recette → machine toujours mise à jour (même si déjà remplie).'],
+    ['v3.3', 'mar 2026',    'Flag pureté (×0,5 / ×2,0) affiché uniquement pour les extracteurs.'],
+    ['v3.3', 'mar 2026',    'Validations OC/Pureté : plus de triangle d\'erreur rouge sur cellules vides.'],
+    ['v3.2', '21 mar 2026', 'Pureté foreuses corrigée (×0,5/×2,0 enfin appliqués).'],
+    ['v3.2', '21 mar 2026', 'Machine auto-remplie à la sélection d\'une recette.'],
+    ['v3.2', '21 mar 2026', 'Flag convoyeur Mk.5 (780/min) ajouté dans Flags.'],
+    ['v3.2', '21 mar 2026', 'Onglets référentiels masqués par défaut (menu S.A.T. > Référentiels).'],
+    ['v3.2', '16 mar 2026', 'Refonte complète — 8 modules, données Satisfactory 1.1.'],
+    ['v3.1', 'jan 2026',    'Recalcul ciblé par ligne (onEdit optimisé).'],
+    ['v3.0', 'nov 2025',    'Migration vers architecture SAT.*  namespace.'],
+  ];
+  sh.getRange(clRow + 1, 1, changelog.length, 3).setValues(
+    changelog.map(function(r) { return [r[0], r[1], r[2]]; })
+  );
+  sh.getRange(clRow + 1, 1, changelog.length, 1)
+    .setFontWeight('bold').setFontColor('#E65100').setHorizontalAlignment('center');
+  sh.getRange(clRow + 1, 2, changelog.length, 1)
+    .setFontColor('#757575').setFontStyle('italic').setFontSize(10);
+  sh.getRange(clRow + 1, 3, changelog.length, 1)
+    .setFontColor('#424242').setFontSize(11);
+  sh.getRange(clRow, 1, changelog.length + 1, 3)
+    .setBorder(true, true, true, true, false, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Dimensions (col C élargie pour les descriptions changelog)
+  sh.setColumnWidth(1, 260).setColumnWidth(2, 180).setColumnWidth(3, 360).setColumnWidth(4, 60);
   sh.setFrozenRows(2);
 
   SAT.Log.ok('Dashboard installé');
@@ -400,7 +470,7 @@ function _installMachines() {
 
 // ─── Étages ─────────────────────────────────────────────────────────────────
 //
-// Feuille VIDE — l'utilisateur la remplit manuellement.
+// Pré-remplie avec 3 étages exemples (à personnaliser).
 // La validation dropdown de la colonne A (Production) pointe vers cette feuille.
 
 function _installFloors() {
@@ -413,16 +483,19 @@ function _installFloors() {
   sh.setRowHeight(1, 28);
   sh.setFrozenRows(1);
 
-  // Aide contextuelle
-  sh.getRange(2, 1)
-    .setValue('(Ajoutez vos étages ici)')
-    .setFontStyle('italic')
-    .setFontColor('#9E9E9E');
+  // Étages exemples — à personnaliser selon votre usine
+  var exemples = [
+    ['Étage 0 — Extraction',  1, 'Foreuses, pompes, puits (matières premières)', ''],
+    ['Étage 1 — Fonderie',    2, 'Lingots et matériaux de base',                 ''],
+    ['Étage 2 — Production',  3, 'Composants intermédiaires et avancés',         '']
+  ];
+  sh.getRange(2, 1, exemples.length, 4).setValues(exemples);
+  sh.getRange(2, 1, exemples.length, 4).setFontColor('#616161').setFontStyle('italic');
 
-  sh.setColumnWidth(1, 180).setColumnWidth(2, 70)
-    .setColumnWidth(3, 250).setColumnWidth(4, 200);
+  sh.setColumnWidth(1, 200).setColumnWidth(2, 70)
+    .setColumnWidth(3, 280).setColumnWidth(4, 200);
 
-  SAT.Log.ok('Étages — feuille vide créée (à remplir par l\'utilisateur)');
+  SAT.Log.ok('Étages — 3 exemples pré-remplis (à personnaliser)');
 }
 
 // ─── Validations (Production) ────────────────────────────────────────────────
@@ -472,14 +545,14 @@ function _setupValidations() {
     SpreadsheetApp.newDataValidation()
       .requireNumberBetween(1, 250)
       .setHelpText('Overclock : 1 à 250 %')
-      .setAllowInvalid(false).build()
+      .setAllowInvalid(true).build()  // true = ne pas afficher d'erreur sur cellule vide
   );
 
   // ── H — Pureté : liste fixe (noms EN officiel wiki)
   prod.getRange(datRow, c.PUR, ROWS, 1).setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(['Impur', 'Normal', 'Pur'], true)
-      .setAllowInvalid(false).build()
+      .setAllowInvalid(true).build()  // true = ne pas afficher d'erreur sur cellule vide
   );
 
   SAT.Log.ok('Validations installées');

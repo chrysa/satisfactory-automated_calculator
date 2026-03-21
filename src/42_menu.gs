@@ -10,42 +10,41 @@ function onOpen(e) {
   // 1. Menu — toujours en premier (même si le reste échoue)
   _buildMenu();
 
-  // 2. Vérification version → install automatique si nécessaire
+  // 2. Vérification version → install si feuilles absentes, mise à jour silencieuse sinon
+  // NOTE : on vérifie l'EXISTENCE des feuilles (pas le nb de lignes de données)
+  //        pour éviter de re-installer quand Production est vide mais déjà configurée.
   try {
     var props  = PropertiesService.getDocumentProperties();
     var stored = props.getProperty('SAT_VERSION') || '';
     var cur    = SAT.CFG.VERSION;
+    var ss     = SpreadsheetApp.getActiveSpreadsheet();
+    var cfg    = SAT.CFG;
 
     if (stored !== cur) {
-      var prodSh  = SAT.S.get(SAT.CFG.SHEETS.PROD);
-      var hasData = prodSh && prodSh.getLastRow() >= SAT.CFG.DAT_ROW;
-      if (!prodSh || !hasData) {
-        // Première installation ou feuilles absentes → install complète
+      var isInstalled = ss.getSheetByName(cfg.SHEETS.PROD) &&
+                        ss.getSheetByName(cfg.SHEETS.DASH);
+      if (!isInstalled) {
+        // Première ouverture sans feuilles SAT → installation complète
         Logger.log('SAT v' + stored + ' -> v' + cur + ' : installation initiale');
-        SpreadsheetApp.getActiveSpreadsheet()
-          .toast('Installation SAT ' + cur + '\u2026', 'SAT', 10);
+        ss.toast('Installation SAT ' + cur + '\u2026', 'SAT', 10);
         SAT_install();
       } else {
-        // Données présentes → ne pas écraser, laisser l'utilisateur décider
-        PropertiesService.getDocumentProperties().setProperty('SAT_VERSION', cur);
-        SpreadsheetApp.getActiveSpreadsheet()
-          .toast('SAT v' + cur + ' charg\u00e9. Utilisez "Mettre \u00e0 jour" si n\u00e9cessaire.', 'S.A.T.', 6);
-        Logger.log('SAT v' + cur + ' — donn\u00e9es conserv\u00e9es (was v' + stored + ')');
+        // Feuilles déjà présentes : mise à jour mineure (ne pas effacer les données)
+        props.setProperty('SAT_VERSION', cur);
+        // Forcer le recalcul pour mettre à jour B2 (version) dans le Dashboard
+        try { SAT_recalcAll(); } catch(e2) {}
+        ss.toast('SAT v' + cur + ' charg\u00e9.', 'S.A.T.', 4);
+        Logger.log('SAT v' + cur + ' \u2014 mise \u00e0 jour silencieuse (was v' + stored + ')');
       }
     } else {
-      Logger.log('SAT v' + cur + ' — a jour, pas de migration');
+      Logger.log('SAT v' + cur + ' \u2014 \u00e0 jour');
     }
   } catch (err) {
     Logger.log('ERR onOpen version check: ' + err.message);
   }
 
-  // 3. Recalcul automatique si des données sont présentes
-  try {
-    var prodSheet = SAT.S.get(SAT.CFG.SHEETS.PROD);
-    if (prodSheet && prodSheet.getLastRow() >= SAT.CFG.DAT_ROW) {
-      SAT_recalcAll();
-    }
-  } catch(e) {}
+  // 3. Recalcul automatique (met à jour le Dashboard y compris la version en B2)
+  try { SAT_recalcAll(); } catch(e) {}
 }
 
 // ─── Construction du menu ─────────────────────────────────────────────────
@@ -54,16 +53,19 @@ function _buildMenu() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('S.A.T.')
-      .addItem('Recalcul complet',          'SAT_recalcAll')
-      .addItem('Résumé de production',      'SAT_SHOW_SUMMARY')
+      .addItem('Recalcul complet',                    'SAT_recalcAll')
+      .addItem('Résumé de production',                'SAT_SHOW_SUMMARY')
       .addSeparator()
-      .addItem('Ajouter un étage',          'SAT_ADD_FLOOR')
-      .addItem('Lister les étages',         'SAT_LIST_FLOORS')
+      .addItem('Ajouter un étage',                    'SAT_ADD_FLOOR')
+      .addItem('Lister les étages',                   'SAT_LIST_FLOORS')
       .addSeparator()
-      .addItem('Créer graphiques Dashboard','SAT_CREATE_CHARTS')
+      .addItem('Afficher / Masquer les référentiels', 'SAT_TOGGLE_REFS')
+      .addItem('Créer graphiques Dashboard',          'SAT_CREATE_CHARTS')
       .addSeparator()
-      .addItem('Mettre à jour (reinstall)', 'SAT_forceUpdate')
-      .addItem('RESET complet',             'SAT_resetAll')
+      .addItem('Nettoyer les doublons d\'onglets',    'SAT_cleanupDuplicates')
+      .addItem('Diagnostic',                          'SAT_DIAGNOSTIC')
+      .addItem('Mettre à jour (reinstall)',            'SAT_forceUpdate')
+      .addItem('RESET complet',                       'SAT_resetAll')
       .addToUi();
   } catch(e) {
     Logger.log('ERR _buildMenu: ' + e.message);
@@ -144,6 +146,7 @@ function SAT_ADD_FLOOR() {
     var sh   = SAT.S.ensure(SAT.CFG.SHEETS.ETAG);
     var next = sh.getLastRow() + 1;
     sh.getRange(next, 1, 1, 4).setValues([[name, next - 1, '', '']]);
+    _setupValidations(); // met à jour le dropdown Étage dans Production
     ui.alert('Étage "' + name + '" ajouté (ligne ' + next + ').');
   } catch(e) {
     ui.alert('Erreur : ' + e.message);
@@ -168,78 +171,59 @@ function SAT_LIST_FLOORS() {
   }
 }
 
+/** Affiche ou masque les 3 onglets de référence (Recettes, Ressources, Machines). */
+function SAT_TOGGLE_REFS() {
+  var cfg  = SAT.CFG;
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var refs = [cfg.SHEETS.REC, cfg.SHEETS.RES, cfg.SHEETS.MACH];
+  // Lire l'état du premier onglet pour déterminer le sens du toggle
+  var first  = ss.getSheetByName(refs[0]);
+  if (!first) { SpreadsheetApp.getUi().alert('Feuilles de référence introuvables.'); return; }
+  var hidden = first.isSheetHidden(); // true = actuellement masqué → on va afficher
+  refs.forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    try { hidden ? sh.showSheet() : sh.hideSheet(); } catch(e) {}
+  });
+  ss.toast(
+    hidden ? 'Référentiels affichés (Recettes, Ressources, Machines).' :
+             'Référentiels masqués — accessibles via ce menu.',
+    'S.A.T.', 4
+  );
+}
+
 /** Crée les graphiques dans le Dashboard. */
 function SAT_CREATE_CHARTS() {
   var ui = SpreadsheetApp.getUi();
-  if (typeof SAT.Charts !== 'undefined' && SAT.Charts.createAllCharts) {
-    try {
-      SAT.Charts.createAllCharts();
-      ui.alert('Graphiques créés dans le Dashboard.');
-    } catch(e) {
-      ui.alert('Erreur graphiques : ' + e.message);
-    }
-  } else {
-    // Graphique simple inline si SAT.Charts absent
-    try {
-      _createSimpleCharts();
-      ui.alert('Graphiques créés dans le Dashboard.');
-    } catch(e) {
-      ui.alert('Erreur : ' + e.message);
-    }
+  try {
+    SAT.Charts.createAllCharts();
+    ui.alert('Graphiques créés dans le Dashboard.');
+  } catch(e) {
+    ui.alert('Erreur graphiques : ' + e.message);
   }
 }
 
-/** Graphique simple de production par étage. */
-function _createSimpleCharts() {
-  var cfg   = SAT.CFG;
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var prod  = SAT.S.get(cfg.SHEETS.PROD);
-  var dash  = SAT.S.get(cfg.SHEETS.DASH);
-  if (!prod || !dash) throw new Error('Feuilles manquantes');
+// ─── Diagnostic ─────────────────────────────────────────────────────────────────────────
 
-  // Supprimer anciens graphiques
-  dash.getCharts().forEach(function(c) { try { dash.removeChart(c); } catch(e) {} });
-
-  var last = prod.getLastRow();
-  if (last < cfg.DAT_ROW) { Logger.log('Pas de données pour le graphique'); return; }
-
-  // Nombre de machines par étage
-  var rows = SAT.Engine.buildIndex();
-  if (rows.length === 0) return;
-
-  // Construire données pour graphique dans une zone temp du Dashboard
-  var chartData = {};
-  rows.forEach(function(r) {
-    chartData[r.etage] = (chartData[r.etage] || 0) + (r.nb || 0);
-  });
-
-  var keys = Object.keys(chartData);
-  var tempRow = 20;
-  dash.getRange(tempRow, 6).setValue('Étage');
-  dash.getRange(tempRow, 7).setValue('Machines');
-  keys.forEach(function(k, i) {
-    dash.getRange(tempRow + 1 + i, 6).setValue(k);
-    dash.getRange(tempRow + 1 + i, 7).setValue(chartData[k]);
-  });
-
-  var dataRange = dash.getRange(tempRow, 6, keys.length + 1, 2);
-  var chart = dash.newChart()
-    .setChartType(Charts.ChartType.BAR)
-    .addRange(dataRange)
-    .setPosition(4, 4, 10, 10)
-    .setOption('title', 'Machines par étage')
-    .setOption('legend', { position: 'none' })
-    .build();
-  dash.insertChart(chart);
+/** Supprime les onglets en double (même nom, conserve le premier). */
+function SAT_cleanupDuplicates() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var before = ss.getSheets().length;
+    _deduplicateSheets();
+    var removed = before - ss.getSheets().length;
+    if (removed > 0) {
+      ui.alert(removed + ' doublon(s) supprimé(s).');
+    } else {
+      ui.alert('Aucun doublon trouvé.');
+    }
+  } catch(e) {
+    ui.alert('Erreur : ' + e.message);
+  }
 }
 
-// ─── Compatibilité avec les anciennes fonctions référencées ─────────────────
-
-function SAT_isFirstTimeSetup()     { return false; }
-function SAT_buildMenu()            { _buildMenu(); }
-function SAT_install_final()        { SAT_install(); }
-function SAT_resetSheetCompletely() { SAT_resetAll(); }
-function SAT_DIAGNOSTIC()           {
+function SAT_DIAGNOSTIC() {
   var ui  = SpreadsheetApp.getUi();
   var cfg = SAT.CFG;
   var ss  = SpreadsheetApp.getActiveSpreadsheet();

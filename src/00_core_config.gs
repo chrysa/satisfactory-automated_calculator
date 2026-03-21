@@ -1,5 +1,5 @@
 /* ============================================================
- * 00_core_config.gs — Configuration application SAT v3.2
+ * 00_core_config.gs — Configuration application SAT v3.3
  * Contient uniquement la config de l'outil (feuilles, colonnes,
  * pureté, version). Les données du jeu sont dans 01_data_vX_Y.gs.
  *
@@ -11,7 +11,7 @@
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.2',
+  VERSION: '3.3',
 
   // ── Version du jeu Satisfactory — change ici pour une MàJ ─
   // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
@@ -63,12 +63,8 @@ SAT.CFG = {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 SAT.U = {
-  str:  function(v) { return (v === null || v === undefined) ? '' : String(v).trim(); },
-  num:  function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; },
-  norm: function(s) {
-    return String(s || '').toLowerCase().trim()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
+  str: function(v) { return (v === null || v === undefined) ? '' : String(v).trim(); },
+  num: function(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 };
 
 SAT.S = {

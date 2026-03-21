@@ -1,5 +1,5 @@
 /* ============================================================
- * 10_engine.gs — Moteur de calcul SAT v3.2
+ * 10_engine.gs — Moteur de calcul SAT v3.3
  * Les taux IN/OUT sont calculés depuis la recette + OC + pureté.
  * ============================================================ */
 
@@ -41,7 +41,8 @@ SAT.Engine = {
       var rec     = recipe ? idx[recipe] : null;
 
       // Calculer les taux à partir de la recette (si disponible)
-      var isExtractor = rec && !rec.inRes1;
+      // isExtractor = taux d'entrée nul (Foreuses, Pompes, Puits) → la pureté s'applique
+      var isExtractor = rec && (rec.inRate1 === 0);
       var inRate1 = 0, inRate2 = 0, outRate1 = 0, outRate2 = 0;
 
       if (rec) {
@@ -52,22 +53,23 @@ SAT.Engine = {
       }
 
       rows.push({
-        row:      cfg.DAT_ROW + i,
-        etage:    etage,
-        machine:  machine || (rec ? rec.machine : ''),
-        recipe:   recipe,
-        inRes1:   rec ? rec.inRes1  : '',
-        inRate1:  inRate1,
-        inRes2:   rec ? rec.inRes2  : '',
-        inRate2:  inRate2,
-        outRes1:  rec ? rec.outRes1 : '',
-        outRate1: outRate1,
-        outRes2:  rec ? rec.outRes2 : '',
-        outRate2: outRate2,
-        nb:       nb,
-        oc:       oc,
-        purity:   pur,
-        rec:      rec
+        row:         cfg.DAT_ROW + i,
+        etage:       etage,
+        machine:     machine || (rec ? rec.machine : ''),
+        recipe:      recipe,
+        isExtractor: isExtractor,
+        inRes1:      rec ? rec.inRes1  : '',
+        inRate1:     inRate1,
+        inRes2:      rec ? rec.inRes2  : '',
+        inRate2:     inRate2,
+        outRes1:     rec ? rec.outRes1 : '',
+        outRate1:    outRate1,
+        outRes2:     rec ? rec.outRes2 : '',
+        outRate2:    outRate2,
+        nb:          nb,
+        oc:          oc,
+        purity:      pur,
+        rec:         rec
       });
     });
 
@@ -129,14 +131,24 @@ SAT.Engine = {
       if (NUCLEAR.test(row.machine)) {
         flags.push('\u2622\uFE0F D\u00e9chets: ' + (row.nb * 12) + '/min');
       }
-      if (row.purity === 'Impur') flags.push('\u{1F4C9} N\u0153ud impur (\xD70,5)');
-      if (row.purity === 'Pur')   flags.push('\u{1F4C8} N\u0153ud pur (\xD72,0)');
+      if (row.purity === 'Impur' && row.isExtractor) flags.push('\u{1F4C9} N\u0153ud impur (\xD70,5)');
+      if (row.purity === 'Pur'   && row.isExtractor) flags.push('\u{1F4C8} N\u0153ud pur (\xD72,0)');
+
+      // V\u00e9rification limite convoyeur Mk.5 (780/min)
+      var totalOut = row.outRate1 * (row.nb || 1);
+      var totalIn  = row.inRate1  * (row.nb || 1);
+      if (totalOut > 780) flags.push('\uD83D\uDFE5 D\u00e9bit OUT ' + totalOut + '/min \u2014 d\u00e9passe Mk.5');
+      if (totalIn  > 780) flags.push('\uD83D\uDFE5 D\u00e9bit IN '  + totalIn  + '/min \u2014 d\u00e9passe Mk.5');
 
       flagsArr.push([flags.join('  ')]);
       causeArr.push([causes.join(' | ')]);
 
-      var bg = causes.length > 0 ? '#FFEBEE' : null;
-      bgFull.push(new Array(c.IN_RATE).fill(bg));
+      // Couleur de fond :
+      // - A–C (saisie) : rouge si erreur, sinon neutre (null = blanc)
+      // - D–E (auto)  : rouge si erreur, sinon vert persistant (#F1F8E9)
+      var bg   = causes.length > 0 ? '#FFEBEE' : null;
+      var bgDE = causes.length > 0 ? '#FFEBEE' : '#F1F8E9';
+      bgFull.push([bg, bg, bg, bgDE, bgDE]);
     }
 
     // Écriture batch : 5 appels max au lieu de ~5 × nb_lignes
@@ -172,19 +184,20 @@ SAT.Engine = {
     var machine = SAT.U.str(r[c.MACHINE - 1]);
     var ocF     = oc / 100;
     var rec     = recipe ? idx[recipe] : null;
-    var isExt   = rec && !rec.inRes1;
+    var isExt   = rec && (rec.inRate1 === 0);
 
     this.writeFlags([{
-      row:      rowNum,
-      etage:    etage,
-      machine:  machine || (rec ? rec.machine : ''),
-      recipe:   recipe,
-      rec:      rec,
-      outRate1: rec ? Math.round(rec.outRate1 * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
-      inRate1:  rec ? Math.round(rec.inRate1  * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
-      nb:       nb,
-      oc:       oc,
-      purity:   pur
+      row:         rowNum,
+      etage:       etage,
+      machine:     machine || (rec ? rec.machine : ''),
+      recipe:      recipe,
+      isExtractor: isExt,
+      rec:         rec,
+      outRate1:    rec ? Math.round(rec.outRate1 * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
+      inRate1:     rec ? Math.round(rec.inRate1  * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
+      nb:          nb,
+      oc:          oc,
+      purity:      pur
     }]);
   },
 
@@ -219,18 +232,5 @@ SAT.Engine = {
       errors:    errors,
       todo:      todo
     };
-  },
-
-  /**
-   * Lit les étages configurés dans la feuille Étages (dynamique).
-   * Retourne un tableau de noms d'étages.
-   */
-  getFloorNames: function() {
-    var sh = SAT.S.get(SAT.CFG.SHEETS.ETAG);
-    if (!sh || sh.getLastRow() < 2) return [];
-    return sh.getRange(2, 1, sh.getLastRow() - 1, 1)
-      .getValues()
-      .map(function(r) { return SAT.U.str(r[0]); })
-      .filter(function(n) { return n !== ''; });
   }
 };

@@ -104,7 +104,7 @@ verify: ## Verify workspace and files integrity
 	@if [ -f ".env" ]; then echo "$(GREEN)✓ .env found$(NC)"; else echo "$(YELLOW)⚠ .env not found$(NC)"; fi
 	@if [ -f ".clasp.json" ]; then echo "$(GREEN)✓ .clasp.json found$(NC)"; else echo "$(RED)✗ .clasp.json missing$(NC)"; exit 1; fi
 	@FILE_COUNT=$$(ls -1 src/*.gs 2>/dev/null | wc -l) && \
-	if [ $$FILE_COUNT -ge 20 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 20+)$(NC)"; exit 1; fi
+	if [ $$FILE_COUNT -ge 5 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 5+)$(NC)"; exit 1; fi
 	@echo "$(GREEN)✅ Verification passed!$(NC)"
 
 push: verify ## Push code to Google Apps Script

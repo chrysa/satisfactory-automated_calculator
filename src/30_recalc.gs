@@ -25,9 +25,12 @@ function SAT_recalcAll() {
  * B4 contient une formule COUNTA — on ne la touche pas.
  */
 function _refreshDashboard(stats) {
-  var dash = SAT.S.get(SAT.CFG.SHEETS.DASH);
+  var cfg  = SAT.CFG;
+  var dash = SAT.S.get(cfg.SHEETS.DASH);
   if (!dash) return;
   try {
+    // B2 — toujours synchronisée avec la version du code
+    dash.getRange('B2').setValue('v' + cfg.VERSION + '  —  wiki officiel Satisfactory ' + cfg.GAME_VERSION);
     dash.getRange('B5').setValue(stats.machines);
     dash.getRange('B6').setValue(stats.etages);
     dash.getRange('B7').setValue(stats.resources);
