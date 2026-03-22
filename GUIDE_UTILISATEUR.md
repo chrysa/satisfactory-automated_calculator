@@ -277,10 +277,20 @@ Le menu **SAT** apparaît dans la barre de menus Google Sheets après chaque ouv
 
 | Option | Action |
 |---|---|
-| **Recalculer** | Relance le moteur de calcul sur toutes les lignes de production |
-| **Réinstaller** | Réinitialise complètement le classeur (⚠️ efface les données) |
-| **Diagnostic** | Affiche un rapport de santé du système dans les logs |
-| **Rafraîchir le Dashboard** | Force la mise à jour des statistiques |
+| **Recalcul complet** | Relance le moteur de calcul sur toutes les lignes de production |
+| **Résumé de production** | Popup : nb lignes, machines actives, étages, erreurs |
+| **➕ Ajouter une ligne de production** | Ouvre un formulaire modal (dropdowns recette/machine/étage, OC%, pureté) |
+| **Ajouter un étage** | Prompt → ajoute une ligne dans 🏗️ Étages |
+| **Lister les étages** | Popup listant tous les étages définis |
+| **Taille des étages** | Calcule surface (m²), fondations (8×8) et marge par étage |
+| **Marge des machines…** | Configure la marge de déplacement entre machines (défaut : 2 m) |
+| **Afficher / Masquer les référentiels** | Bascule la visibilité des onglets Recettes / Ressources / Machines |
+| **Créer graphiques Dashboard** | (Re)génère les 2 graphiques permanents |
+| **Archiver usine & changer version jeu** | Renomme les feuilles de production en snapshot, puis recrée des feuilles vierges pour une nouvelle version |
+| **Nettoyer les doublons d'onglets** | Supprime les onglets en double issus d'un rechargement forcé |
+| **Diagnostic** | Affiche un rapport de santé (version, feuilles, nb lignes) |
+| **Mettre à jour (reinstall)** | Reconstruit toutes les feuilles — ✅ les données Production et Étages sont conservées |
+| **RESET complet** | Réinitialisation intégrale (efface tout) |
 
 > Pour accéder aux logs : **Extensions → Apps Script → Exécutions** dans la barre de menus Google Sheets.
 
@@ -319,4 +329,4 @@ R : Utilisez **Fichier → Télécharger → Microsoft Excel (.xlsx)** ou **.csv
 
 ---
 
-*S.A.T. v2026.03 — Google Apps Script*
+*S.A.T. v3.4.2 — Google Apps Script*

@@ -181,11 +181,16 @@ La feuille **🏗️ Étages** définit la structure verticale de l'usine.
 |---|---|
 | **Recalcul complet** | Relance le moteur sur toutes les lignes |
 | **Résumé de production** | Popup : nb lignes, machines, étages, erreurs |
+| **➕ Ajouter une ligne de production** | Formulaire modal HTML — dropdowns recette/machine/étage, OC%, pureté |
 | **Ajouter un étage** | Prompt → ajoute une ligne dans 🏗️ Étages |
 | **Lister les étages** | Popup listant tous les étages définis |
+| **Taille des étages** | Surface m², fondations 8×8, marge configurable |
+| **Marge des machines…** | Définit la marge de déplacement autour des machines (défaut 2 m) |
 | **Créer graphiques Dashboard** | Génère les graphiques dans 📊 Tableau de bord |
-| **Mettre à jour (reinstall)** | Reconstruit les feuilles (⚠️ données Production effacées) |
-| **RESET complet** | Identique — efface tout |
+| **Archiver usine & changer version jeu** | Snapshot des feuilles + recréation vierge pour nouvelle version |
+| **Nettoyer les doublons d'onglets** | Supprime les onglets en double |
+| **Mettre à jour (reinstall)** | Reconstruit les feuilles — ✅ données Production + Étages conservées |
+| **RESET complet** | Réinitialisation intégrale (efface tout) |
 | **Diagnostic** | Popup : version, feuilles présentes, nb lignes |
 
 ---
@@ -254,7 +259,7 @@ Les données v1.1 restent disponibles — aucune suppression n'est nécessaire.
 ```javascript
 // 00_core_config.gs
 SAT.CFG = {
-  VERSION:      '3.2',   // version de l'application
+  VERSION:      '3.4.2',   // version de l'application
   GAME_VERSION: '1.1',   // ← changer ici pour une MàJ Satisfactory
 
   SHEETS: {

@@ -1,6 +1,6 @@
 # 🏭 S.A.T. — Satisfactory Automated Tracker
 
-**Version app**: 3.4 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
+**Version app**: 3.4.2 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
 
 Calculateur de production pour Satisfactory, basé sur Google Sheets / Apps Script. Saisie par recette officielle, calcul automatique des taux, alertes intelligentes, dashboard en temps réel.
 
@@ -30,19 +30,38 @@ satisfactory_automated_calculator/
 
 ---
 
-## ✨ Nouveautés v3.4
+## ✨ Nouveautés v3.4.x
 
 | Fonctionnalité | Statut |
 |---|---|
 | **Colonnes Qt/min STD & ⚡ MW** | ✅ Taux standard + consommation électrique par ligne |
-| **Dashboard électricité** | ✅ MW total, MW/machine, dernière mise à jour |
+| **Dashboard électricité** | ✅ MW total + MW max à 250% OC, dernière mise à jour |
 | **Top ressources produites** | ✅ Top 8 par Qt/min affiché dans le Dashboard |
 | **Goulots (sous-production)** | ✅ Ressources consommées > produites avec déficit |
 | **Graphiques permanents** | ✅ 2 graphiques toujours présents (machines/étage + top Qt/min) |
 | **Archivage & migration** | ✅ Archiver une usine et démarrer une nouvelle version jeu |
+| **Formulaire d'ajout production** | ✅ Modal HTML — dropdowns recette/machine/étage, OC%, pureté |
+| **Calculateur taille d'étages** | ✅ Surface m², fondations 8×8, marge configurable entre machines |
+| **Dimensions machines** | ✅ Largeur × Longueur (m) dans le référentiel Machines |
+| **Fusionnement colonnes Dashboard** | ✅ Quick start et Changelog sur toute la largeur |
+| **Backup données au reinstall** | ✅ Production (A–H) et Étages conservés après "Mettre à jour" |
+| **Bump version automatique** | ✅ `make push` incrémente automatiquement le patch de version |
 
 <details>
 <summary>Historique des versions antérieures</summary>
+
+### v3.4.1
+- Correction positions graphiques Dashboard (hors des tables de données)
+- Correction hauteurs de lignes (rows 11, 13 ne s'effondrent plus)
+- Fusion colonnes Quick start et Changelog sur toute la largeur (A–H)
+- Buff = 50 dans `_installDashboardCharts` et `_refreshDashboardCharts` synchronisés
+
+### v3.4
+- Dashboard v2 : section électricité, goulots, top ressources, graphiques permanents
+- Formulaire HTML d'ajout de ligne de production (modal)
+- Calculateur de taille d'étages + marge configurable
+- Archivage usine & migration vers une nouvelle version jeu
+- Colonnes K (Qt/min STD) et L (⚡ MW) dans Production
 
 ### v3.3.1
 - Correction mise à jour automatique Dashboard au changement de version
@@ -51,7 +70,6 @@ satisfactory_automated_calculator/
 ### v3.3
 - Suppression des doublons d'onglets à l'install
 - Correction #ERROR dans les cellules de valeurs
-- Amélioration ergonomique du Dashboard (changelog 1 ligne/version)
 
 ### v3.2
 - Noms FR officiels (machines + ressources conformes wiki.gg/fr)
@@ -92,12 +110,13 @@ npm install -g @google/clasp
 
 ### Commandes
 ```bash
-make push         # Push vers Apps Script
+make push         # Bump version patch + push vers Apps Script
 make pull         # Pull depuis Apps Script
 make open         # Ouvrir dans le navigateur
 make help         # Toutes les commandes
-make help         # Show all commands
 ```
+
+> `make push` incrémente automatiquement le patch (`3.4.2` → `3.4.3`) avant chaque déploiement.
 
 ---
 
@@ -144,161 +163,68 @@ cp src/01_data_v1_1.gs src/01_data_v2_0.gs
 # 3. Déployer
 make push
 ```
-- `53_app_menu.gs` → **ENTRY POINT** with contextual menu
 
 ---
 
-## 💡 Code Examples
-
-```javascript
-// Configuration centralisée
-var prodSheet = SAT.CFG.SHEETS.PRODUCTION;
-var startRow = SAT.CFG.PRODUCTION.DATA_START_ROW;
-
-// Étages (Stages/Floors)
-SAT.Etages.add("Stage 0", 1, "normal");
-var allFloors = SAT.Etages.getAll();
-
-// Sheet access (safe)
-var sheet = SAT.S.must("📈 Production", "Production");
-var data = sheet.getRange(2, 1, 100, 10).getValues();
-
-// Logging with emojis
-SAT.Log.info("✓ Operation succeeded");
-SAT.Log.warn("⚠ Warning message");
-SAT.Log.error("🔴 Error occurred");
-
-// Retry pattern (NEW)
-var result = SAT_Resilience_Retry(
-  function() { return unreliableOperation(); },
-  3,              // maxRetries
-  500,            // initialDelayMs
-  "OperationName" // for logging
-);
-```
-
----
-
-## 🧰 Menu Structure
+## 🧰 Menu SAT
 
 ```
-🧰 SAT ASSIST (Contextual Menu)
-├─ 📊 Données
-│  ├─ 🧱 Installer structure (first-time setup)
-│  ├─ 🔄 Recalculer tout
-│  └─ ✓ Vérifier intégrité
-├─ ➕ Production
-│  └─ ➕ Ajouter ligne
-├─ 🔍 Chercher
-│  ├─ 🔎 Ressources
-│  └─ 🏗️ Étages
-├─ 👁️ Affichage
-│  ├─ 📊 Panneaux
-│  └─ 🎨 Colorisation
-└─ 🔧 Outils
-   ├─ 🔍 Diagnostic
-   ├─ 🔧 Auto-repair
-   └─ 📖 Documentation
-```
-
-The menu adapts dynamically based on current state:
-- First-time users see setup instructions
-- Error states show recovery options
-- Production sheet activates production-specific actions
-
----
-
-## 🔐 Code Patterns
-
-### Always Use Guards (CRITICAL)
-```javascript
-function myFunction() {
-  var cfg = SAT._ensureAPI("CFG", "00_core_config");
-  var log = SAT._ensureAPI("Log", "00_core_logging");
-  
-  // Now safe to use cfg and log
-}
-```
-
-### Error Handling
-```javascript
-try {
-  var data = SAT.SomeModule.getData();
-  SAT.Log.info("✓ Data loaded: " + data.length + " rows");
-  return data;
-} catch (e) {
-  SAT.Log.error("getData failed: " + e.message);
-  throw e;
-}
-```
-
-### Module Structure
-```javascript
-var SAT = this.SAT || (this.SAT = {});
-
-SAT.MyModule = SAT.MyModule || {
-  publicMethod: function(param) {
-    try {
-      // Implementation
-      return result;
-    } catch (e) {
-      SAT.Log.error("publicMethod failed: " + e.message);
-      throw e;
-    }
-  }
-};
-
-Logger.log("✅ filename.gs loaded");
+S.A.T.
+  Recalcul complet
+  Résumé de production
+  ─────────────────────────────────
+  ➕ Ajouter une ligne de production
+  ─────────────────────────────────
+  Ajouter un étage
+  Lister les étages
+  Taille des étages
+  Marge des machines…
+  ─────────────────────────────────
+  Afficher / Masquer les référentiels
+  Créer graphiques Dashboard
+  ─────────────────────────────────
+  Archiver usine & changer version jeu
+  ─────────────────────────────────
+  Nettoyer les doublons d'onglets
+  Diagnostic
+  Mettre à jour (reinstall)       ← conserve Production + Étages
+  RESET complet                   ← efface tout
 ```
 
 ---
 
 ## ✅ Pre-Deployment Checklist
 
-- [ ] All 33 files in `src/` directory
-- [ ] `src/00_bootstrap.gs` loads first
-- [ ] `appsscript.json` references correct scriptId
-- [ ] `.clasp.json` has correct rootDir pointing to `src/`
-- [ ] No uncommitted changes in git
-- [ ] Ran `make pre-commit` successfully
+- [ ] 8 fichiers `.gs` dans `src/`
+- [ ] `appsscript.json` référence le bon scriptId
+- [ ] `.clasp.json` a `"rootDir": "src"`
+- [ ] Pas de modifications non commitées
+- [ ] `make push` s'exécute sans erreur
 
 ---
 
 ## 🔧 Troubleshooting
 
-| Error | Solution |
+| Erreur | Solution |
 |-------|----------|
-| `SAT.CFG undefined` | Menu → 🧰 → 📊 → 🧱 Installer structure |
-| Menu doesn't appear | Reload: Ctrl+Shift+R (or Cmd+Shift+R on Mac) |
-| onOpen() crashes | Menu → 🔧 → 🔍 Diagnostic & Auto-repair |
-| `.clasp.json not found` | Run `clasp login` in project root |
-| `Need rootDir` | Ensure `.clasp.json` has `"rootDir": "src"` |
-
----
-
-## 🤖 Using GitHub Copilot
-
-Reference `COPILOT_GUIDE.md` in your prompts:
-
-```
-Using COPILOT_GUIDE.md and SAT ASSIST 2026:
-In src/15_feature_*.gs, add SAT.MyFeature.doSomething()
-that uses SAT._ensureAPI() guards and SAT.Log for errors.
-```
+| Menu SAT absent | Rechargez la page (Ctrl+Shift+R) |
+| `#ERROR` dans les cellules | Menu SAT → Recalcul complet |
+| Listes déroulantes vides | Menu SAT → Mettre à jour (reinstall) |
+| Dashboard affiché bizarre | Menu SAT → Mettre à jour — les données Production sont conservées |
+| `.clasp.json not found` | `clasp login` à la racine du projet |
 
 ---
 
 ## 📊 Project Metrics
 
-| Metric | Value |
+| Métrique | Valeur |
 |--------|-------|
-| Files | 33 .gs modules |
-| Lines of Code | ~9,000 (production only) |
-| Layers | 5 (Bootstrap → Core → Business → Features → App) |
-| Load Order | Alphabetical (guaranteed by Google Apps Script) |
-| Dependencies | Zero circular dependencies |
-| Documentation | 2 files (minimal) |
-| Copilot Ready | ✅ Patterns documented |
+| Fichiers | 8 modules .gs |
+| Lignes de code | ~2 500 |
+| Recettes | 67 recettes officielles Satisfactory 1.1 |
+| Machines | 18 machines avec dimensions et MW |
+| Ressources | 95 ressources classées |
+| Dépendances | Zéro dépendance externe |
 
 ---
 
@@ -320,13 +246,12 @@ clasp open
 
 ## 📝 Version History
 
-- **v2026.03** - Contextual menu, retry pattern, doc consolidation
-- **v2026.02** - Bootstrap system, core APIs, architecture
-- **v2026.01** - Initial production version
+- **v3.4.2** - MW max 250% OC, backup/restore au reinstall, version dynamique dans changelog
+- **v3.4.1** - Corrections layout Dashboard (graphiques, fusions colonnes, hauteurs)
+- **v3.4** - Dashboard v2, formulaire production, calculateur étages, archivage
+- **v3.3** - Corrections ergonomiques, dédup onglets
+- **v3.2** - Réécriture complète 8 modules, données Satisfactory 1.1 FR
 
 ---
 
-**SAT ASSIST v2026.03** | 33 Files | 9K LOC | Bootstrap ✓ | Production Ready ✨
-
-For GitHub Copilot help → See [COPILOT_GUIDE.md](COPILOT_GUIDE.md)
-# satisfactory-automated_calculator
+**S.A.T. v3.4.2** | 8 Modules | Satisfactory 1.1 | Production Ready ✅
