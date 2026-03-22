@@ -209,13 +209,12 @@ function _installDashboard() {
       .setBackground('#F5F5F5').setFontSize(10).setFontWeight('bold');
     sh.getRange(5 + i, 2).setBackground('#FFFFFF').setFontSize(11)
       .setFontWeight('bold').setFontColor('#1565C0').setHorizontalAlignment('center');
-    sh.setRowHeight(5 + i, 22);
+    sh.setRowHeight(5 + i, 24);
   });
   sh.getRange(5, 1, prodLabels.length, 2)
     .setBorder(true, true, true, true, true, true, '#BBDEFB', SpreadsheetApp.BorderStyle.SOLID);
 
-  // ── Section ÉLECTRICITÉ (A12:D15) ──────────────────────────────────────────
-  sh.setRowHeight(11, 8);
+  // ── Electricity section (A12:D15) — no row height reduction: row 11 is shared with top-resources data
   sh.getRange(11, 1, 1, 4).setBackground('#FFF8E1');
   secStyle(sh.getRange(12, 1, 1, 4), '#E65100', '#FFFFFF');
   sh.getRange(12, 1).setValue('  \u26A1 \u00C9lectricit\u00e9');
@@ -231,7 +230,7 @@ function _installDashboard() {
       .setBackground('#FFF3E0').setFontSize(10).setFontWeight('bold');
     sh.getRange(13 + i, 2).setBackground('#FFFFFF').setFontSize(11)
       .setFontWeight('bold').setFontColor('#E65100').setHorizontalAlignment('center');
-    sh.setRowHeight(13 + i, 22);
+    sh.setRowHeight(13 + i, 24);
   });
   sh.getRange(13, 1, elecLabels.length, 2)
     .setBorder(true, true, true, true, true, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
@@ -240,8 +239,8 @@ function _installDashboard() {
   secStyle(sh.getRange(4, 5, 1, 4), '#2E7D32', '#FFFFFF');
   sh.getRange(4, 5).setValue('  \uD83D\uDCE6 Top ressources produites (/min)');
   sh.setRowHeight(4, 28);
-  // Lignes E5:H12 — remplies par _refreshDashboard
-  sh.getRange(5, 5, 8, 4)
+  // Top resources: 9 rows (col-header at row 5 + 8 data rows 6–13, matching _refreshDashboard)
+  sh.getRange(5, 5, 9, 4)
     .setBackground('#F9FBE7').setFontSize(10)
     .setBorder(true, true, true, true, true, false, '#C8E6C9', SpreadsheetApp.BorderStyle.SOLID);
   // En-têtes colonnes ressources
@@ -250,13 +249,12 @@ function _installDashboard() {
     .setBackground('#E8F5E9');
 
   // ── Section SOUS-PRODUITES (E14:H21) ───────────────────────────────────────
-  sh.setRowHeight(13, 8);
   sh.getRange(13, 5, 1, 4).setBackground('#FCE4EC');
   secStyle(sh.getRange(14, 5, 1, 4), '#C62828', '#FFFFFF');
   sh.getRange(14, 5).setValue('  \u26A0\uFE0F Goulots (ressources manquantes)');
   sh.setRowHeight(14, 28);
-  // Lignes E15:H21 — remplies par _refreshDashboard
-  sh.getRange(15, 5, 7, 4)
+  // Bottlenecks: 8 rows (col-header at row 15 + 7 data rows 16–22, matching _refreshDashboard)
+  sh.getRange(15, 5, 8, 4)
     .setBackground('#FFF8F8').setFontSize(10)
     .setBorder(true, true, true, true, true, false, '#EF9A9A', SpreadsheetApp.BorderStyle.SOLID);
   sh.getRange(15, 5, 1, 4).setValues([['Ressource', 'Prod.', 'Conso.', 'D\u00e9ficit']]);
@@ -264,54 +262,65 @@ function _installDashboard() {
     .setBackground('#FFEBEE');
 
   // ── Graphique placeholder col H (position fixe) — créé par _installCharts
-  sh.setRowHeight(22, 8);
-  sh.getRange(22, 1, 1, 8).setBackground('#E3F2FD');
+  // Row 22 is the last bottleneck data row — give it normal height (not collapsed)
+  sh.setRowHeight(22, 24);
 
-  // ── Guide rapide (A23:D28) ─────────────────────────────────────────────────
-  secStyle(sh.getRange(23, 1, 1, 4), '#37474F', '#FFFFFF');
-  sh.getRange(23, 1).setValue('  \uD83D\uDCA1 Guide rapide');
-  sh.setRowHeight(23, 28);
+  // Charts zone (rows 23-36)
+  // Charts anchored at row 25 (left: col A, right: col E) by _installDashboardCharts.
+  // 12 rows x 22 px = 264 px — enough to contain 240-px-tall charts without overflow.
+  sh.setRowHeight(23, 8);
+  sh.getRange(23, 1, 1, 8).setBackground('#E8EAF6');
+  secStyle(sh.getRange(24, 1, 1, 8), '#283593', '#FFFFFF');
+  sh.getRange(24, 1).setValue('  \uD83D\uDCC8 Charts');
+  sh.setRowHeight(24, 28);
+  for (var cr = 25; cr <= 36; cr++) { sh.setRowHeight(cr, 22); }
+
+  // Quick start guide (rows 37-43)
+  sh.setRowHeight(37, 8);
+  sh.getRange(37, 1, 1, 8).setBackground('#E3F2FD');
+  secStyle(sh.getRange(38, 1, 1, 4), '#37474F', '#FFFFFF');
+  sh.getRange(38, 1).setValue('  \uD83D\uDCA1 Quick start');
+  sh.setRowHeight(38, 28);
 
   var tips = [
-    ['1.', 'Saisir \u00C9tage, Machine, Recette, Nb, OC% dans la feuille Production.'],
-    ['2.', 'Qt/min IN/OUT et \u26A1 MW se calculent automatiquement.'],
-    ['3.', 'OC% = overclock (100=normal, 250=max). Col K = taux \u00e0 OC=100%.'],
-    ['4.', 'Puret\u00e9 pour les extracteurs : Impur \u00D70,5 — Pur \u00D72,0.'],
-    ['5.', 'Menu S.A.T. > Recalcul complet pour forcer la mise \u00e0 jour.']
+    ['1.', 'Fill in Stage, Machine, Recipe, Qty, OC% in the Production sheet.'],
+    ['2.', 'Qt/min IN/OUT and \u26A1 MW are computed automatically on each edit.'],
+    ['3.', 'OC% = overclock (100 = normal, 250 = max). Col K = rate at OC=100%.'],
+    ['4.', 'Purity for extractors only: Impure \u00D70.5 \u2014 Pure \u00D72.0.'],
+    ['5.', 'Menu S.A.T. \u203A Full recalc to force a dashboard refresh.']
   ];
-  sh.getRange(24, 1, tips.length, 2).setValues(tips);
-  sh.getRange(24, 1, tips.length, 1)
+  sh.getRange(39, 1, tips.length, 2).setValues(tips);
+  sh.getRange(39, 1, tips.length, 1)
     .setFontWeight('bold').setFontColor('#546E7A').setHorizontalAlignment('center');
-  sh.getRange(24, 2, tips.length, 1).setFontColor('#37474F').setFontSize(10);
-  tips.forEach(function(_, i) { sh.setRowHeight(24 + i, 20); });
+  sh.getRange(39, 2, tips.length, 1).setFontColor('#37474F').setFontSize(10).setWrap(true);
+  tips.forEach(function(_, i) { sh.setRowHeight(39 + i, 24); });
 
-  // ── Changelog (A30:D...) ───────────────────────────────────────────────────
-  sh.setRowHeight(29, 8);
-  sh.getRange(29, 1, 1, 8).setBackground('#FFF3E0');
-  var clRow = 30;
+  // Changelog (rows 45+)
+  sh.setRowHeight(44, 8);
+  sh.getRange(44, 1, 1, 8).setBackground('#FFF3E0');
+  var clRow = 45;
   secStyle(sh.getRange(clRow, 1, 1, 8), '#BF360C', '#FFFFFF');
   sh.getRange(clRow, 1).setValue('  CHANGELOG');
   sh.setRowHeight(clRow, 28);
 
   var changelog = [
-    ['v3.4', '22 mar 2026',
-      '\u2022 Colonne K \u00ab Qt/min STD \u00bb : taux de sortie \u00e0 OC=100% (sans boost)\n' +
-      '\u2022 Colonne L \u00ab \u26A1 MW \u00bb : consommation \u00e9lectrique totale\n' +
-      '\u2022 Dashboard : infos \u00e9lectrique, goulots, top ressources, graphiques permanents.\n' +
-      '\u2022 Archivage usine avant migration de version de jeu.'],
-    ['v3.3.1', '22 mar 2026',
-      '\u2022 Mise \u00e0 jour structurelle Dashboard/Validations au changement de version.\n' +
-      '\u2022 Doublons d\u2019onglets \u00e9limin\u00e9s (install par placeholder).\n' +
-      '\u2022 B4 Dashboard \u2014 fin du #ERROR (formule remplac\u00e9e par setValue).'],
-    ['v3.3', 'mar 2026',
-      '\u2022 Ligne effac\u00e9e (\u00C9tage vide) \u2192 colonnes auto nettoy\u00e9es.\n' +
-      '\u2022 Nouvelle ligne \u2192 OC=100 et Puret\u00e9=Normal pr\u00e9-remplis.\n' +
-      '\u2022 Flag puret\u00e9 (\u00D70,5 / \u00D72,0) affich\u00e9 uniquement pour les extracteurs.'],
-    ['v3.2', '16\u201321 mar 2026',
-      '\u2022 Refonte compl\u00e8te \u2014 8 modules, donn\u00e9es Satisfactory 1.1.\n' +
-      '\u2022 Puret\u00e9 foreuses corrig\u00e9e, machine auto-remplie, Mk.5 flag.'],
-    ['v3.1', 'jan 2026',   '\u2022 Recalcul cibl\u00e9 par ligne (onEdit optimis\u00e9).'],
-    ['v3.0', 'nov 2025',   '\u2022 Migration vers architecture SAT.* namespace.']
+    ['v3.4', '22 Mar 2026',
+      '\u2022 Columns K (Qt/min STD) and L (\u26A1 MW): standard rate + power draw per line.\n' +
+      '\u2022 Dashboard: electricity section, bottlenecks, top resources, permanent charts.\n' +
+      '\u2022 Archive & migrate: snapshot a factory before a game version update.\n' +
+      '\u2022 Stage size calculator with configurable machine clearance margin.'],
+    ['v3.3.1', '22 Mar 2026',
+      '\u2022 Soft-update rebuilds Dashboard + validations on version change.\n' +
+      '\u2022 Duplicate sheet dedup on install. Fixed #ERROR via setValue.'],
+    ['v3.3', 'Mar 2026',
+      '\u2022 Cleared row removes auto-computed columns.\n' +
+      '\u2022 New row pre-fills OC=100 and Purity=Normal.\n' +
+      '\u2022 Purity flag only shown for extractors.'],
+    ['v3.2', '16\u201321 Mar 2026',
+      '\u2022 Full rewrite \u2014 8 modules, Satisfactory 1.1 data (FR names).\n' +
+      '\u2022 Fixed extractor purity, auto machine fill, Mk.5 flag.'],
+    ['v3.1', 'Jan 2026', '\u2022 Per-row targeted recalc (onEdit optimised).'],
+    ['v3.0', 'Nov 2025', '\u2022 Migrated to SAT.* namespace architecture.']
   ];
   sh.getRange(clRow + 1, 1, changelog.length, 3).setValues(
     changelog.map(function(r) { return [r[0], r[1], r[2]]; })
@@ -326,16 +335,18 @@ function _installDashboard() {
     .setFontColor('#424242').setFontSize(10).setVerticalAlignment('top');
   sh.getRange(clRow, 1, changelog.length + 1, 3)
     .setBorder(true, true, true, true, false, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
+  // Explicit row heights so multi-line bullet points are fully visible
+  changelog.forEach(function(_, i) { sh.setRowHeight(clRow + 1 + i, 80); });
 
-  // ── Largeurs colonnes ──────────────────────────────────────────────────────
-  sh.setColumnWidth(1, 210);  // A — libellé gauche
-  sh.setColumnWidth(2, 100);  // B — valeur gauche
-  sh.setColumnWidth(3, 20);   // C — espace
-  sh.setColumnWidth(4, 20);   // D — espace
-  sh.setColumnWidth(5, 180);  // E — ressource
-  sh.setColumnWidth(6, 75);   // F — prod
-  sh.setColumnWidth(7, 75);   // G — conso
-  sh.setColumnWidth(8, 75);   // H — déficit
+  // Column widths
+  sh.setColumnWidth(1, 210);  // A - label
+  sh.setColumnWidth(2, 100);  // B - value
+  sh.setColumnWidth(3, 20);   // C - padding
+  sh.setColumnWidth(4, 20);   // D - padding
+  sh.setColumnWidth(5, 220);  // E - resource name
+  sh.setColumnWidth(6, 75);   // F
+  sh.setColumnWidth(7, 75);   // G
+  sh.setColumnWidth(8, 75);   // H
   sh.setFrozenRows(2);
 
   // ── Graphiques permanents (vides si pas de données) ────────────────────────
@@ -353,43 +364,42 @@ function _installDashboard() {
 //   I(9) Flags | J(10) Cause | K(11) Qt/min STD | L(12) ⚡ MW total
 
 /**
- * Crée 2 graphiques permanents dans le Dashboard (col E–H, lignes 4–21).
- * Ils s'appuient sur une zone de données temporaire en col F–G ligne 36+.
- * Si la feuille Production est vide, les graphiques s'affichent vides (pas d'erreur).
+ * Creates 2 permanent charts on the Dashboard in the dedicated chart zone (rows 25-36).
+ * Chart 1 (left, col A): machines per stage. Chart 2 (right, col E): top resources Qt/min.
+ * Both use a hidden data buffer at row 50 (well below visible rows 1-46).
  */
 function _installDashboardCharts(sh) {
-  // Supprimer les anciens graphiques
+  // Remove existing charts
   sh.getCharts().forEach(function(c) { try { sh.removeChart(c); } catch(e) {} });
 
-  // Zone tampon de données — ligne 40 (hors zone visible du Dashboard)
-  // Col F(6)=Étage/Ressource, G(7)=Valeur  /  Col H(8)=Ressource, I(9)=Valeur
-  var buf = 40;
-  sh.getRange(buf, 6, 1, 2).setValues([['Étage','Machines']]);
-  sh.getRange(buf, 8, 1, 2).setValues([['Ressource','Qt/min']]);
+  // Hidden data buffer at row 50 — does not interfere with visible rows 1-46
+  var buf = 50;
+  sh.getRange(buf, 6, 1, 2).setValues([['Stage', 'Machines']]);
+  sh.getRange(buf, 8, 1, 2).setValues([['Resource', 'Qt/min']]);
 
-  // Graphique 1 : Machines par étage
+  // Chart 1: machines by stage — anchored at A25 (left half of chart zone)
   var chart1 = sh.newChart()
     .setChartType(Charts.ChartType.BAR)
     .addRange(sh.getRange(buf, 6, 2, 2))
-    .setPosition(4, 5, 5, 5)
-    .setOption('title', 'Machines par étage')
-    .setOption('width', 370).setOption('height', 200)
+    .setPosition(25, 1, 4, 4)
+    .setOption('title', 'Machines by stage')
+    .setOption('width', 360).setOption('height', 240)
     .setOption('legend', { position: 'none' })
-    .setOption('hAxis', { title: 'Nb', minValue: 0 })
-    .setOption('backgroundColor', '#F9FBE7')
+    .setOption('hAxis', { title: 'Count', minValue: 0 })
+    .setOption('backgroundColor', '#F3E5F5')
     .build();
   sh.insertChart(chart1);
 
-  // Graphique 2 : Top ressources produites
+  // Chart 2: top produced resources — anchored at E25 (right half of chart zone)
   var chart2 = sh.newChart()
     .setChartType(Charts.ChartType.BAR)
     .addRange(sh.getRange(buf, 8, 2, 2))
-    .setPosition(14, 5, 5, 5)
+    .setPosition(25, 5, 4, 4)
     .setOption('title', 'Top production (Qt/min)')
-    .setOption('width', 370).setOption('height', 200)
+    .setOption('width', 360).setOption('height', 240)
     .setOption('legend', { position: 'none' })
     .setOption('hAxis', { title: 'Qt/min', minValue: 0 })
-    .setOption('backgroundColor', '#F9FBE7')
+    .setOption('backgroundColor', '#E8F5E9')
     .build();
   sh.insertChart(chart2);
 }

@@ -84,7 +84,7 @@ function _refreshDashboard(stats) {
  */
 function _refreshDashboardCharts(dash, stats) {
   try {
-    var buf = 40;
+    var buf = 50; // must match _installDashboardCharts buf constant
 
     // Graphique 1 — machines par étage
     var etageMap = {};
