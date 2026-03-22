@@ -11,7 +11,7 @@
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.4',
+  VERSION: '3.4.1',
 
   // ── Version du jeu Satisfactory — change ici pour une MàJ ─
   // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)

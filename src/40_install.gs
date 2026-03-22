@@ -278,7 +278,7 @@ function _installDashboard() {
   // Quick start guide (rows 37-43)
   sh.setRowHeight(37, 8);
   sh.getRange(37, 1, 1, 8).setBackground('#E3F2FD');
-  secStyle(sh.getRange(38, 1, 1, 4), '#37474F', '#FFFFFF');
+  secStyle(sh.getRange(38, 1, 1, 8), '#37474F', '#FFFFFF');
   sh.getRange(38, 1).setValue('  \uD83D\uDCA1 Quick start');
   sh.setRowHeight(38, 28);
 
@@ -289,11 +289,14 @@ function _installDashboard() {
     ['4.', 'Purity for extractors only: Impure \u00D70.5 \u2014 Pure \u00D72.0.'],
     ['5.', 'Menu S.A.T. \u203A Full recalc to force a dashboard refresh.']
   ];
-  sh.getRange(39, 1, tips.length, 2).setValues(tips);
-  sh.getRange(39, 1, tips.length, 1)
-    .setFontWeight('bold').setFontColor('#546E7A').setHorizontalAlignment('center');
-  sh.getRange(39, 2, tips.length, 1).setFontColor('#37474F').setFontSize(10).setWrap(true);
-  tips.forEach(function(_, i) { sh.setRowHeight(39 + i, 24); });
+  // Merge B-H for each tip so text spans full dashboard width
+  tips.forEach(function(tip, i) {
+    sh.getRange(39 + i, 1).setValue(tip[0])
+      .setFontWeight('bold').setFontColor('#546E7A').setHorizontalAlignment('center');
+    sh.getRange(39 + i, 2, 1, 7).merge().setValue(tip[1])
+      .setFontColor('#37474F').setFontSize(10).setWrap(true);
+    sh.setRowHeight(39 + i, 24);
+  });
 
   // Changelog (rows 45+)
   sh.setRowHeight(44, 8);
@@ -322,21 +325,19 @@ function _installDashboard() {
     ['v3.1', 'Jan 2026', '\u2022 Per-row targeted recalc (onEdit optimised).'],
     ['v3.0', 'Nov 2025', '\u2022 Migrated to SAT.* namespace architecture.']
   ];
-  sh.getRange(clRow + 1, 1, changelog.length, 3).setValues(
-    changelog.map(function(r) { return [r[0], r[1], r[2]]; })
-  );
-  sh.getRange(clRow + 1, 1, changelog.length, 3).setWrap(true);
-  sh.getRange(clRow + 1, 1, changelog.length, 1)
-    .setFontWeight('bold').setFontColor('#E65100')
-    .setHorizontalAlignment('center').setVerticalAlignment('top');
-  sh.getRange(clRow + 1, 2, changelog.length, 1)
-    .setFontColor('#757575').setFontStyle('italic').setFontSize(10).setVerticalAlignment('top');
-  sh.getRange(clRow + 1, 3, changelog.length, 1)
-    .setFontColor('#424242').setFontSize(10).setVerticalAlignment('top');
-  sh.getRange(clRow, 1, changelog.length + 1, 3)
+  // Per-row: merge C-H so text spans cols 3-8 (col C alone is 20px — far too narrow)
+  changelog.forEach(function(r, i) {
+    sh.getRange(clRow + 1 + i, 1).setValue(r[0])
+      .setFontWeight('bold').setFontColor('#E65100')
+      .setHorizontalAlignment('center').setVerticalAlignment('top');
+    sh.getRange(clRow + 1 + i, 2).setValue(r[1])
+      .setFontColor('#757575').setFontStyle('italic').setFontSize(10).setVerticalAlignment('top');
+    sh.getRange(clRow + 1 + i, 3, 1, 6).merge().setValue(r[2])
+      .setFontColor('#424242').setFontSize(10).setWrap(true).setVerticalAlignment('top');
+    sh.setRowHeight(clRow + 1 + i, 80);
+  });
+  sh.getRange(clRow, 1, changelog.length + 1, 8)
     .setBorder(true, true, true, true, false, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
-  // Explicit row heights so multi-line bullet points are fully visible
-  changelog.forEach(function(_, i) { sh.setRowHeight(clRow + 1 + i, 80); });
 
   // Column widths
   sh.setColumnWidth(1, 210);  // A - label

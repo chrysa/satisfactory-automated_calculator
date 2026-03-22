@@ -1,4 +1,4 @@
-.PHONY: help deploy test backup sync clean install push pull verify setup-env open login
+.PHONY: help deploy test backup sync clean install push pull verify setup-env open login bump-version
 
 # 🧰 S.A.T 2026 - Makefile for Deployment Management
 # Usage: make [target]
@@ -107,10 +107,21 @@ verify: ## Verify workspace and files integrity
 	if [ $$FILE_COUNT -ge 5 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 5+)$(NC)"; exit 1; fi
 	@echo "$(GREEN)✅ Verification passed!$(NC)"
 
-push: verify ## Push code to Google Apps Script
+push: bump-version verify ## Push code to Google Apps Script
 	@echo "$(BLUE)📤 Pushing code to Apps Script...$(NC)"
 	@$(CLASP_PATH) push --force
 	@echo "$(GREEN)✅ Code pushed!$(NC)"
+
+bump-version: ## Increment patch version in 00_core_config.gs before push
+	@CURRENT=$$(grep -m1 -oP "^ *VERSION: '\\K[^']+" src/00_core_config.gs); \
+	MAJOR=$$(echo $$CURRENT | cut -d'.' -f1); \
+	MINOR=$$(echo $$CURRENT | cut -d'.' -f2); \
+	PATCH=$$(echo $$CURRENT | cut -d'.' -f3); \
+	if [ -z "$$PATCH" ]; then PATCH=0; fi; \
+	NEW_PATCH=$$((PATCH + 1)); \
+	NEW_VER="$$MAJOR.$$MINOR.$$NEW_PATCH"; \
+	sed -i "s|VERSION: '$$CURRENT'|VERSION: '$$NEW_VER'|" src/00_core_config.gs; \
+	echo "$(GREEN)Version bumped: $$CURRENT -> $$NEW_VER$(NC)"
 
 open: ## Ouvrir le projet dans le navigateur (Apps Script + Sheet)
 	@$(CLASP_PATH) open
