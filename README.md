@@ -1,6 +1,6 @@
 # 🏭 S.A.T. — Satisfactory Automated Tracker
 
-**Version app**: 3.2 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
+**Version app**: 3.4 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
 
 Calculateur de production pour Satisfactory, basé sur Google Sheets / Apps Script. Saisie par recette officielle, calcul automatique des taux, alertes intelligentes, dashboard en temps réel.
 
@@ -30,15 +30,35 @@ satisfactory_automated_calculator/
 
 ---
 
-## ✨ Nouveautés v3.2 (16 mars 2026)
+## ✨ Nouveautés v3.4
 
 | Fonctionnalité | Statut |
 |---|---|
-| **Noms FR officiels** | ✅ Machines et ressources conformes à wiki.gg/fr |
-| **Modularité version jeu** | ✅ `SAT.DATA['1.1']` — prêt pour les futures versions |
-| **Architecture allégée** | ✅ 8 fichiers, zéro héritage legacy |
-| **Recettes par nom** | ✅ Saisie par recette officielle, taux calculés automatiquement |
-| **Feuilles FR** | ✅ Dashboard, Production, Recettes, Ressources, Machines, Étages |
+| **Colonnes Qt/min STD & ⚡ MW** | ✅ Taux standard + consommation électrique par ligne |
+| **Dashboard électricité** | ✅ MW total, MW/machine, dernière mise à jour |
+| **Top ressources produites** | ✅ Top 8 par Qt/min affiché dans le Dashboard |
+| **Goulots (sous-production)** | ✅ Ressources consommées > produites avec déficit |
+| **Graphiques permanents** | ✅ 2 graphiques toujours présents (machines/étage + top Qt/min) |
+| **Archivage & migration** | ✅ Archiver une usine et démarrer une nouvelle version jeu |
+
+<details>
+<summary>Historique des versions antérieures</summary>
+
+### v3.3.1
+- Correction mise à jour automatique Dashboard au changement de version
+- Correction `SAT.S.get()` avec fallback emoji normalisé
+
+### v3.3
+- Suppression des doublons d'onglets à l'install
+- Correction #ERROR dans les cellules de valeurs
+- Amélioration ergonomique du Dashboard (changelog 1 ligne/version)
+
+### v3.2
+- Noms FR officiels (machines + ressources conformes wiki.gg/fr)
+- Modularité version jeu (`SAT.DATA['1.1']`)
+- Architecture allégée à 8 fichiers
+
+</details>
 
 ---
 

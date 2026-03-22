@@ -13,32 +13,34 @@ SAT.DATA = SAT.DATA || {};
 SAT.DATA['1.1'] = {
 
   // ── Machines (noms officiels FR in-game) ──────────────────
-  // [Nom, MW, Entrées conv., Sorties conv., Catégorie]
+  // [Nom, MW, Entrées conv., Sorties conv., Catégorie, Larg.(m), Long.(m)]
+  // Dimensions : emprise au sol du corps de la machine (sans bras convoyeurs).
+  // Source : satisfactory.wiki.gg — éditable dans la feuille ⚙️ Machines.
   MACHINES: [
     // Extraction
-    ['Foreuse Mk.1',               4,  0, 1, 'Extraction'],
-    ['Foreuse Mk.2',              12,  0, 1, 'Extraction'],
-    ['Foreuse Mk.3',              30,  0, 1, 'Extraction'],
-    ['Pompe à eau',               20,  0, 1, 'Extraction'],
-    ['Puit de pétrole',           40,  0, 1, 'Extraction'],
-    ['Pressuriseur de puits de ressources', 150, 0, 0, 'Extraction'],
+    ['Foreuse Mk.1',               4,  0, 1, 'Extraction',    10, 10],
+    ['Foreuse Mk.2',              12,  0, 1, 'Extraction',    10, 10],
+    ['Foreuse Mk.3',              30,  0, 1, 'Extraction',    10, 10],
+    ['Pompe à eau',               20,  0, 1, 'Extraction',    20, 20],
+    ['Puit de pétrole',           40,  0, 1, 'Extraction',    10, 10],
+    ['Pressuriseur de puits de ressources', 150, 0, 0, 'Extraction', 10, 10],
     // Fusion
-    ['Fonderie',                   4,  1, 1, 'Fusion'],
-    ['Fonderie avancée',          16,  2, 1, 'Fusion'],
+    ['Fonderie',                   4,  1, 1, 'Fusion',         6,  9],
+    ['Fonderie avancée',          16,  2, 1, 'Fusion',        10, 14],
     // Production
-    ['Constructeur',               4,  1, 1, 'Production'],
-    ['Assembleuse',               15,  2, 1, 'Production'],
-    ['Façonneuse',                55,  4, 1, 'Production'],
+    ['Constructeur',               4,  1, 1, 'Production',    10,  9],
+    ['Assembleuse',               15,  2, 1, 'Production',    20, 16],
+    ['Façonneuse',                55,  4, 1, 'Production',    24, 22],
     // Raffinage
-    ['Raffinerie',                30,  1, 2, 'Raffinage'],
-    ['Mélangeur',                 75,  2, 2, 'Raffinage'],
-    ['Conditionneur',             10,  2, 2, 'Conditionnement'],
+    ['Raffinerie',                30,  1, 2, 'Raffinage',     10, 20],
+    ['Mélangeur',                 75,  2, 2, 'Raffinage',     16, 20],
+    ['Conditionneur',             10,  2, 2, 'Conditionnement', 12, 12],
     // Avancé
-    ['Accélérateur de particules',500, 2, 1, 'Avancé'],
-    ['Encodeur quantique',       1000, 4, 2, 'Avancé'],
-    ['Convertisseur',            100,  2, 1, 'Avancé'],
+    ['Accélérateur de particules',500, 2, 1, 'Avancé',        24, 38],
+    ['Encodeur quantique',       1000, 4, 2, 'Avancé',        22, 26],
+    ['Convertisseur',            100,  2, 1, 'Avancé',        20, 20],
     // Énergie
-    ['Centrale nucléaire',         0,  2, 1, 'Énergie']
+    ['Centrale nucléaire',         0,  2, 1, 'Énergie',       36, 44]
   ],
 
   // ── Ressources (noms officiels FR in-game) ────────────────

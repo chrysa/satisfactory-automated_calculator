@@ -1,5 +1,5 @@
 /* ============================================================
- * 00_core_config.gs — Configuration application SAT v3.3
+ * 00_core_config.gs — Configuration application SAT v3.4
  * Contient uniquement la config de l'outil (feuilles, colonnes,
  * pureté, version). Les données du jeu sont dans 01_data_vX_Y.gs.
  *
@@ -11,7 +11,7 @@
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.3',
+  VERSION: '3.4',
 
   // ── Version du jeu Satisfactory — change ici pour une MàJ ─
   // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
@@ -30,8 +30,8 @@ SAT.CFG = {
   // ── Colonnes feuille Production (1-based) ─────────────────
   // A(1)   B(2)      C(3)      D(4)         E(5)       F(6)  G(7)  H(8)
   // Étage  Machine   Recette   Qt/min OUT   Qt/min IN   Nb   OC%  Pureté
-  // I(9)    J(10)
-  // Flags   Cause
+  // I(9)    J(10)   K(11)            L(12)
+  // Flags   Cause   Qt/min STD   ⚡ MW total
   C: {
     ETAGE:    1,   // A — \u00C9tage (dropdown depuis 🏗️ \u00C9tages)
     MACHINE:  2,   // B — Machine (dropdown depuis ⚙️ Machines)
@@ -42,7 +42,9 @@ SAT.CFG = {
     OC:       7,   // G — Overclock %
     PUR:      8,   // H — Pureté (extracteurs seulement)
     FLAGS:    9,   // I — Flags auto
-    CAUSE:    10   // J — Cause erreur
+    CAUSE:    10,  // J — Cause erreur
+    STD_RATE: 11,  // K — Qt/min STD (taux base à OC=100%, sans suralimentation)
+    MW:       12   // L — ⚡ Consommation électrique totale (MW)
   },
 
   HDR_ROW: 1,
@@ -51,7 +53,8 @@ SAT.CFG = {
   PURITY: { 'Impur': 0.5, 'Normal': 1.0, 'Pur': 2.0 },
 
   // ── Index des recettes par nom (construit au runtime) ──────
-  RECIPE_INDEX: null,
+  RECIPE_INDEX:  null,
+  MACHINE_INDEX: null,
 
   // ── Données du jeu (injectées depuis 01_data_vX_Y.gs) ─────
   // Accéder via SAT.CFG.MACHINES, SAT.CFG.RESOURCES, SAT.CFG.RECIPES
@@ -68,12 +71,22 @@ SAT.U = {
 };
 
 SAT.S = {
+  /** Retourne la feuille par nom exact, ou par nom normalisé (fallback encodage emoji). */
   get: function(name) {
-    return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName(name);
+    if (sh) return sh;
+    var norm = name.replace(/[^\w\s\u00C0-\u024F\-]/g, '').trim().toLowerCase();
+    var all  = ss.getSheets();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].getName().replace(/[^\w\s\u00C0-\u024F\-]/g, '').trim().toLowerCase() === norm) {
+        return all[i];
+      }
+    }
+    return null;
   },
   ensure: function(name) {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    return ss.getSheetByName(name) || ss.insertSheet(name);
+    return SAT.S.get(name) || SpreadsheetApp.getActiveSpreadsheet().insertSheet(name);
   }
 };
 
@@ -97,7 +110,8 @@ SAT.loadGameData = function() {
   SAT.CFG.MACHINES  = d.MACHINES;
   SAT.CFG.RESOURCES = d.RESOURCES;
   SAT.CFG.RECIPES   = d.RECIPES;
-  SAT.CFG.RECIPE_INDEX = null; // reset index si rechargement
+  SAT.CFG.RECIPE_INDEX  = null; // reset index si rechargement
+  SAT.CFG.MACHINE_INDEX = null;
   SAT.Log.info('Données jeu v' + v + ' chargées (' +
     d.MACHINES.length + ' machines, ' + d.RESOURCES.length +
     ' ressources, ' + d.RECIPES.length + ' recettes)');
@@ -124,5 +138,19 @@ SAT.getRecipeIndex = function() {
     };
   });
   SAT.CFG.RECIPE_INDEX = idx;
+  return idx;
+};
+
+/**
+ * Construit l'index des machines (nom → puissance de base en MW) au premier appel.
+ */
+SAT.getMachineIndex = function() {
+  if (!SAT.CFG.MACHINES) SAT.loadGameData();
+  if (SAT.CFG.MACHINE_INDEX) return SAT.CFG.MACHINE_INDEX;
+  var idx = {};
+  SAT.CFG.MACHINES.forEach(function(m) {
+    idx[m[0]] = m[1]; // [Nom, MW, In, Out, Catégorie]
+  });
+  SAT.CFG.MACHINE_INDEX = idx;
   return idx;
 };

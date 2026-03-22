@@ -1,5 +1,5 @@
 /* ============================================================
- * 10_engine.gs — Moteur de calcul SAT v3.3
+ * 10_engine.gs — Moteur de calcul SAT v3.4
  * Les taux IN/OUT sont calculés depuis la recette + OC + pureté.
  * ============================================================ */
 
@@ -21,9 +21,10 @@ SAT.Engine = {
 
     var data = sh.getRange(cfg.DAT_ROW, 1, last - cfg.DAT_ROW + 1, cfg.C.CAUSE)
                  .getValues();
-    var c    = cfg.C;
-    var idx  = SAT.getRecipeIndex();
-    var rows = [];
+    var c       = cfg.C;
+    var idx     = SAT.getRecipeIndex();
+    var machIdx = SAT.getMachineIndex();
+    var rows    = [];
 
     data.forEach(function(r, i) {
       var etage = SAT.U.str(r[c.ETAGE - 1]);
@@ -44,18 +45,28 @@ SAT.Engine = {
       // isExtractor = taux d'entrée nul (Foreuses, Pompes, Puits) → la pureté s'applique
       var isExtractor = rec && (rec.inRate1 === 0);
       var inRate1 = 0, inRate2 = 0, outRate1 = 0, outRate2 = 0;
+      var stdRate1 = 0, totalMW = 0;
 
       if (rec) {
         inRate1  = Math.round(rec.inRate1  * ocF * (isExtractor ? purMult : 1) * 100) / 100;
         inRate2  = Math.round(rec.inRate2  * ocF * 100) / 100;
         outRate1 = Math.round(rec.outRate1 * ocF * (isExtractor ? purMult : 1) * 100) / 100;
         outRate2 = Math.round(rec.outRate2 * ocF * 100) / 100;
+        // Taux de base à OC=100% (sans suralimentation, même pureté du nœud)
+        stdRate1 = Math.round(rec.outRate1 * (isExtractor ? purMult : 1) * 100) / 100;
+      }
+
+      // Consommation électrique : MW_base × Nb × (OC%)^1,321
+      var machineName = machine || (rec ? rec.machine : '');
+      var baseMW      = machIdx[machineName] || 0;
+      if (baseMW > 0) {
+        totalMW = Math.round(baseMW * nb * Math.pow(ocF, 1.321) * 10) / 10;
       }
 
       rows.push({
         row:         cfg.DAT_ROW + i,
         etage:       etage,
-        machine:     machine || (rec ? rec.machine : ''),
+        machine:     machineName,
         recipe:      recipe,
         isExtractor: isExtractor,
         inRes1:      rec ? rec.inRes1  : '',
@@ -66,6 +77,8 @@ SAT.Engine = {
         outRate1:    outRate1,
         outRes2:     rec ? rec.outRes2 : '',
         outRate2:    outRate2,
+        stdRate1:    stdRate1,
+        totalMW:     totalMW,
         nb:          nb,
         oc:          oc,
         purity:      pur,
@@ -98,6 +111,7 @@ SAT.Engine = {
 
     // Tableaux batch
     var outRates = [], inRates = [], flagsArr = [], causeArr = [], bgFull = [];
+    var stdRates = [], mwArr   = [];
 
     for (var n = 0; n < span; n++) {
       var rn  = minRow + n;
@@ -107,6 +121,7 @@ SAT.Engine = {
         // Ligne intercalée sans étage : effacer les colonnes auto
         outRates.push(['']); inRates.push(['']);
         flagsArr.push(['']); causeArr.push(['']);
+        stdRates.push(['']); mwArr.push(['']);
         bgFull.push(new Array(c.IN_RATE).fill(null));
         continue;
       }
@@ -116,6 +131,8 @@ SAT.Engine = {
 
       outRates.push([row.rec ? row.outRate1 : '']);
       inRates.push([row.rec  ? row.inRate1  : '']);
+      stdRates.push([row.rec ? row.stdRate1 : '']);
+      mwArr.push([row.totalMW || '']);
 
       // Détection d'erreurs
       if (!row.machine)           causes.push('Machine manquante');
@@ -151,11 +168,13 @@ SAT.Engine = {
       bgFull.push([bg, bg, bg, bgDE, bgDE]);
     }
 
-    // Écriture batch : 5 appels max au lieu de ~5 × nb_lignes
-    sh.getRange(minRow, c.OUT_RATE, span, 1).setValues(outRates);
-    sh.getRange(minRow, c.IN_RATE,  span, 1).setValues(inRates);
-    sh.getRange(minRow, c.FLAGS,    span, 1).setValues(flagsArr);
-    sh.getRange(minRow, c.CAUSE,    span, 1).setValues(causeArr);
+    // Écriture batch : 7 appels max
+    sh.getRange(minRow, c.OUT_RATE,  span, 1).setValues(outRates);
+    sh.getRange(minRow, c.IN_RATE,   span, 1).setValues(inRates);
+    sh.getRange(minRow, c.FLAGS,     span, 1).setValues(flagsArr);
+    sh.getRange(minRow, c.CAUSE,     span, 1).setValues(causeArr);
+    sh.getRange(minRow, c.STD_RATE,  span, 1).setValues(stdRates);
+    sh.getRange(minRow, c.MW,        span, 1).setValues(mwArr);
     sh.getRange(minRow, 1, span, c.IN_RATE).setBackgrounds(bgFull);
   },
 
@@ -186,15 +205,23 @@ SAT.Engine = {
     var rec     = recipe ? idx[recipe] : null;
     var isExt   = rec && (rec.inRate1 === 0);
 
+    var machineName = machine || (rec ? rec.machine : '');
+    var machIdx     = SAT.getMachineIndex();
+    var baseMW      = machIdx[machineName] || 0;
+    var stdRate1    = rec ? Math.round(rec.outRate1 * (isExt ? purMult : 1) * 100) / 100 : 0;
+    var totalMW     = baseMW > 0 ? Math.round(baseMW * nb * Math.pow(ocF, 1.321) * 10) / 10 : 0;
+
     this.writeFlags([{
       row:         rowNum,
       etage:       etage,
-      machine:     machine || (rec ? rec.machine : ''),
+      machine:     machineName,
       recipe:      recipe,
       isExtractor: isExt,
       rec:         rec,
       outRate1:    rec ? Math.round(rec.outRate1 * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
       inRate1:     rec ? Math.round(rec.inRate1  * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
+      stdRate1:    stdRate1,
+      totalMW:     totalMW,
       nb:          nb,
       oc:          oc,
       purity:      pur
@@ -203,34 +230,68 @@ SAT.Engine = {
 
   /**
    * Calcule les statistiques globales.
+   * Retourne aussi : totalMW, topResources (top 8 par Qt/min OUT),
+   * underProduced (ressources consommées > produites, signe de goulot).
    */
   stats: function(rows) {
     var totalMach = 0;
+    var totalMW   = 0;
     var etageSet  = {};
-    var resSet    = {};
+    var produced  = {}; // ressource → Qt/min produite totale
+    var consumed  = {}; // ressource → Qt/min consommée totale
     var errors    = 0;
     var todo      = 0;
 
     rows.forEach(function(r) {
-      totalMach += (r.nb || 0);
+      var nb = r.nb || 0;
+      totalMach += nb;
+      totalMW   += (r.totalMW || 0);
       etageSet[r.etage] = true;
-      if (r.outRes1) {
-        resSet[r.outRes1] = (resSet[r.outRes1] || 0) + r.outRate1 * (r.nb || 1);
-      }
-      if (r.outRes2) {
-        resSet[r.outRes2] = (resSet[r.outRes2] || 0) + r.outRate2 * (r.nb || 1);
-      }
+
+      if (r.outRes1) produced[r.outRes1] = (produced[r.outRes1] || 0) + r.outRate1 * nb;
+      if (r.outRes2) produced[r.outRes2] = (produced[r.outRes2] || 0) + r.outRate2 * nb;
+      if (r.inRes1 && r.inRate1 > 0)
+        consumed[r.inRes1] = (consumed[r.inRes1] || 0) + r.inRate1 * nb;
+      if (r.inRes2 && r.inRate2 > 0)
+        consumed[r.inRes2] = (consumed[r.inRes2] || 0) + r.inRate2 * nb;
+
       if (!r.machine || !r.recipe) errors++;
       if (!r.nb) todo++;
     });
 
+    // Top 8 ressources produites (Qt/min décroissante)
+    var topResources = Object.keys(produced)
+      .map(function(k) { return { name: k, rate: Math.round(produced[k] * 10) / 10 }; })
+      .sort(function(a, b) { return b.rate - a.rate; })
+      .slice(0, 8);
+
+    // Ressources sous-produites : consommées mais pas (assez) produites en interne
+    var underProduced = [];
+    Object.keys(consumed).forEach(function(res) {
+      var prod = produced[res] || 0;
+      var cons = consumed[res];
+      if (cons > prod + 0.01) {
+        underProduced.push({
+          name:    res,
+          deficit: Math.round((cons - prod) * 10) / 10,
+          cons:    Math.round(cons * 10) / 10,
+          prod:    Math.round(prod * 10) / 10
+        });
+      }
+    });
+    underProduced.sort(function(a, b) { return b.deficit - a.deficit; });
+
     return {
-      lines:     rows.length,
-      machines:  totalMach,
-      etages:    Object.keys(etageSet).length,
-      resources: Object.keys(resSet).length,
-      errors:    errors,
-      todo:      todo
+      lines:          rows.length,
+      machines:       totalMach,
+      etages:         Object.keys(etageSet).length,
+      resources:      Object.keys(produced).length,
+      errors:         errors,
+      todo:           todo,
+      totalMW:        Math.round(totalMW * 10) / 10,
+      topResources:   topResources,
+      underProduced:  underProduced,
+      _rows:          rows
     };
   }
 };
