@@ -30,10 +30,33 @@ function SAT_install() {
 
   Logger.log('\n=== SAT Installation v' + cfg.VERSION + ' (jeu v' + cfg.GAME_VERSION + ') ===\n');
 
-  // ── Réinitialisation complète ──────────────────────────────────────────────
-  // Insérer un placeholder (GAS exige au moins 1 feuille), supprimer toutes les
-  // autres sans exception, puis installer les feuilles SAT proprement.
-  // Ceci évite tout problème d'encodage emoji / doublons résiduels.
+  // ── Backup user data before full reset ─────────────────────────────────────
+  // Save user-entered columns from Production (A,B,C,F,G,H) and entire Étages.
+  // Auto-computed columns (D,E,I,J,K,L) are excluded — they are recalculated.
+  var _backupProd  = null; // [[etage, machine, recipe, nb, oc, purity], ...]
+  var _backupEtag  = null; // [[col1, col2, col3, col4], ...]
+  var _prodSh = ss.getSheetByName(cfg.SHEETS.PROD);
+  var _etagSh = ss.getSheetByName(cfg.SHEETS.ETAG);
+  var c = cfg.C;
+  if (_prodSh && _prodSh.getLastRow() >= cfg.DAT_ROW) {
+    var _nRows = _prodSh.getLastRow() - cfg.DAT_ROW + 1;
+    var _full  = _prodSh.getRange(cfg.DAT_ROW, 1, _nRows, c.MW).getValues();
+    _backupProd = _full.map(function(row) {
+      return [row[c.ETAGE-1], row[c.MACHINE-1], row[c.RECIPE-1],
+              row[c.NB-1], row[c.OC-1], row[c.PUR-1]];
+    }).filter(function(row) {
+      // Keep rows that have at least a recipe or a floor set
+      return row[0] !== '' || row[2] !== '';
+    });
+  }
+  if (_etagSh && _etagSh.getLastRow() >= 2) {
+    var _eRows = _etagSh.getLastRow() - 1;
+    _backupEtag = _etagSh.getRange(2, 1, _eRows, 4).getValues();
+  }
+
+  // ── Full reset ─────────────────────────────────────────────────────────────
+  // Insert a placeholder (GAS requires at least 1 sheet), delete all others,
+  // then install SAT sheets cleanly to avoid emoji encoding / stale duplicates.
   var _tmpSh = ss.insertSheet('__SAT_RESET__');
   ss.getSheets().forEach(function(sh) {
     if (sh.getSheetId() !== _tmpSh.getSheetId()) {
@@ -53,6 +76,27 @@ function SAT_install() {
 
   _setupValidations();
   _setupProtections();
+
+  // ── Restore user data ──────────────────────────────────────────────────────
+  // Write back Production user columns (A,B,C,F,G,H) and Étages rows.
+  var _newProdSh = ss.getSheetByName(cfg.SHEETS.PROD);
+  if (_backupProd && _backupProd.length > 0 && _newProdSh) {
+    _backupProd.forEach(function(row, i) {
+      var r = cfg.DAT_ROW + i;
+      _newProdSh.getRange(r, c.ETAGE,   1, 1).setValue(row[0]);
+      _newProdSh.getRange(r, c.MACHINE, 1, 1).setValue(row[1]);
+      _newProdSh.getRange(r, c.RECIPE,  1, 1).setValue(row[2]);
+      _newProdSh.getRange(r, c.NB,      1, 1).setValue(row[3]);
+      _newProdSh.getRange(r, c.OC,      1, 1).setValue(row[4]);
+      _newProdSh.getRange(r, c.PUR,     1, 1).setValue(row[5]);
+    });
+    Logger.log('Restored ' + _backupProd.length + ' production rows');
+  }
+  var _newEtagSh = ss.getSheetByName(cfg.SHEETS.ETAG);
+  if (_backupEtag && _backupEtag.length > 0 && _newEtagSh) {
+    _newEtagSh.getRange(2, 1, _backupEtag.length, 4).setValues(_backupEtag);
+    Logger.log('Restored ' + _backupEtag.length + ' floor rows');
+  }
 
   // Réordonner les onglets (les feuilles sont déjà dans le bon ordre d'insertion,
   // mais on repositionne explicitement pour plus de robustesse)
@@ -222,7 +266,7 @@ function _installDashboard() {
 
   var elecLabels = [
     'Consommation totale (MW)',
-    'Moy. par machine (MW)',
+    'Production max \u00e0 250% OC (MW)',
     'Derni\u00e8re mise \u00e0 jour'
   ];
   elecLabels.forEach(function(lbl, i) {
@@ -307,11 +351,12 @@ function _installDashboard() {
   sh.setRowHeight(clRow, 28);
 
   var changelog = [
-    ['v3.4', '22 Mar 2026',
+    ['v' + cfg.VERSION, '22 Mar 2026',
       '\u2022 Columns K (Qt/min STD) and L (\u26A1 MW): standard rate + power draw per line.\n' +
       '\u2022 Dashboard: electricity section, bottlenecks, top resources, permanent charts.\n' +
       '\u2022 Archive & migrate: snapshot a factory before a game version update.\n' +
-      '\u2022 Stage size calculator with configurable machine clearance margin.'],
+      '\u2022 Stage size calculator with configurable machine clearance margin.\n' +
+      '\u2022 Column merges for tips/changelog. Auto bump-version before each push.'],
     ['v3.3.1', '22 Mar 2026',
       '\u2022 Soft-update rebuilds Dashboard + validations on version change.\n' +
       '\u2022 Duplicate sheet dedup on install. Fixed #ERROR via setValue.'],

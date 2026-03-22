@@ -79,6 +79,7 @@ SAT.Engine = {
         outRate2:    outRate2,
         stdRate1:    stdRate1,
         totalMW:     totalMW,
+        nominalMW:   baseMW * nb,
         nb:          nb,
         oc:          oc,
         purity:      pur,
@@ -222,6 +223,7 @@ SAT.Engine = {
       inRate1:     rec ? Math.round(rec.inRate1  * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
       stdRate1:    stdRate1,
       totalMW:     totalMW,
+      nominalMW:   baseMW * nb,
       nb:          nb,
       oc:          oc,
       purity:      pur
@@ -236,6 +238,7 @@ SAT.Engine = {
   stats: function(rows) {
     var totalMach = 0;
     var totalMW   = 0;
+    var maxMW     = 0; // nominal MW at max overclock (250%)
     var etageSet  = {};
     var produced  = {}; // ressource → Qt/min produite totale
     var consumed  = {}; // ressource → Qt/min consommée totale
@@ -246,6 +249,7 @@ SAT.Engine = {
       var nb = r.nb || 0;
       totalMach += nb;
       totalMW   += (r.totalMW || 0);
+      maxMW     += (r.nominalMW || 0);
       etageSet[r.etage] = true;
 
       if (r.outRes1) produced[r.outRes1] = (produced[r.outRes1] || 0) + r.outRate1 * nb;
@@ -289,6 +293,7 @@ SAT.Engine = {
       errors:         errors,
       todo:           todo,
       totalMW:        Math.round(totalMW * 10) / 10,
+      maxMW:          Math.round(maxMW * Math.pow(2.5, 1.321) * 10) / 10,
       topResources:   topResources,
       underProduced:  underProduced,
       _rows:          rows

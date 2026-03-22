@@ -42,10 +42,10 @@ function _refreshDashboard(stats) {
     dash.getRange(10, 2).setValue(stats.todo);
 
     // ── Stats électricité (B13:B15) ────────────────────────────────────────
-    var mw    = stats.totalMW    || 0;
-    var mach  = stats.machines   || 0;
+    var mw    = stats.totalMW || 0;
+    var maxMW = stats.maxMW    || 0;
     dash.getRange(13, 2).setValue(mw);
-    dash.getRange(14, 2).setValue(mach > 0 ? Math.round(mw / mach * 10) / 10 : 0);
+    dash.getRange(14, 2).setValue(maxMW);
     dash.getRange(15, 2).setValue(new Date().toLocaleString('fr-FR'));
 
     // ── Top ressources produites (E6:H13 — 8 lignes) ──────────────────────
