@@ -264,14 +264,27 @@ function SAT_DIAGNOSTIC() {
  * Alimente les listes depuis les feuilles Étages, Machines et Recettes.
  */
 function SAT_showAddProductionForm() {
-  var cfg      = SAT.CFG;
-  var etages   = _getSheetCol1(cfg.SHEETS.ETAG);
-  var machines = _getSheetCol1(cfg.SHEETS.MACH);
-  var recipes  = _getSheetCol1(cfg.SHEETS.REC);
+  var cfg = SAT.CFG;
+  SAT.getRecipeIndex(); // charge les données jeu si besoin
+
+  var etages = _getSheetCol1(cfg.SHEETS.ETAG);
+
+  // Liste des recettes + map recette → machine (depuis les données jeu chargées)
+  var recipes = [], recipeToMachine = {};
+  (cfg.RECIPES || []).forEach(function(r) {
+    if (r[0]) { recipes.push(r[0]); recipeToMachine[r[0]] = r[1] || ''; }
+  });
+
+  // Map machine → {sloop, cat} pour adapter le formulaire
+  var machineInfo = {};
+  (cfg.MACHINES || []).forEach(function(m) {
+    if (m[0]) machineInfo[m[0]] = { sloop: m[8] || 0, cat: m[4] || '' };
+  });
+
   SpreadsheetApp.getUi().showModalDialog(
     HtmlService.createHtmlOutput(
-      _buildProductionFormHtml(etages, machines, recipes)
-    ).setWidth(500).setHeight(530),
+      _buildProductionFormHtml(etages, recipes, recipeToMachine, machineInfo)
+    ).setWidth(510).setHeight(550),
     'Nouvelle ligne de production'
   );
 }
@@ -292,8 +305,9 @@ function SAT_addProductionRow(d) {
     var etage   = String(d.etage   || '').trim().substring(0, 200);
     var machine = String(d.machine || '').trim().substring(0, 200);
     var recipe  = String(d.recipe  || '').trim().substring(0, 200);
-    var nb      = Math.max(1, Math.min(999,   parseInt(d.nb, 10)  || 1));
-    var oc      = Math.max(1, Math.min(250,   parseInt(d.oc, 10)  || 100));
+    var nb      = Math.max(1, Math.min(999,   parseInt(d.nb,    10) || 1));
+    var oc      = Math.max(1, Math.min(250,   parseInt(d.oc,    10) || 100));
+    var sloop   = Math.max(0, Math.min(4,     parseInt(d.sloop, 10) || 0));
     var purity  = (['Normal','Pur','Impur'].indexOf(String(d.purity)) >= 0)
                     ? String(d.purity) : 'Normal';
 
@@ -312,6 +326,7 @@ function SAT_addProductionRow(d) {
     sh.getRange(nextRow, c.NB     ).setValue(nb);
     sh.getRange(nextRow, c.OC     ).setValue(oc);
     sh.getRange(nextRow, c.PUR    ).setValue(purity);
+    sh.getRange(nextRow, c.SLOOP  ).setValue(sloop);
 
     // Recalcul pour remplir D/E (taux auto) et K/L (STD rate / MW)
     try { SAT_recalcAll(); } catch(e) {}
@@ -380,62 +395,103 @@ function _formCss() {
   ].join(' ');
 }
 
-/** Construit le HTML complet du formulaire "Nouvelle ligne de production". */
-function _buildProductionFormHtml(etages, machines, recipes) {
-  var etageOpts   = '<option value="">\u2014 none \u2014</option>' + _buildSelectOptions(etages);
-  var machOpts    = '<option value="">\u2014 select \u2014</option>' + _buildSelectOptions(machines);
-  var recipeOpts  = '<option value="">\u2014 select \u2014</option>' + _buildSelectOptions(recipes);
+/** Construit le HTML complet du formulaire "Nouvelle ligne de production".
+ * @param {string[]} etages          Étages disponibles
+ * @param {string[]} recipes         Recettes disponibles
+ * @param {Object}   recipeToMachine Map nom recette → nom machine
+ * @param {Object}   machineInfo     Map nom machine → {sloop:N, cat:'...'}
+ */
+function _buildProductionFormHtml(etages, recipes, recipeToMachine, machineInfo) {
+  var etageOpts  = '<option value="">\u2014 aucun \u2014</option>' + _buildSelectOptions(etages);
+  var recipeOpts = '<option value="">\u2014 choisir \u2014</option>' + _buildSelectOptions(recipes);
 
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + _formCss() + '</style></head><body>' +
-    '<h2>\uD83C\uDFED New production line</h2>' +
-    '<form id="f" onsubmit="go(event)">' +
+  // Encoder les maps en JSON pour injection sécurise dans la balise <script>
+  var r2mJson   = JSON.stringify(recipeToMachine).replace(/<\//g, '<\\/');
+  var mInfoJson = JSON.stringify(machineInfo).replace(/<\//g, '<\\/');
 
-    '<div class="fg"><label>Stage</label>' +
+  var extraCss = [
+    '.mach-box{background:#f1f3f4;border:1px solid #dadce0;border-radius:6px;',
+    'padding:7px 10px;font-size:13px;color:#3c4043;min-height:33px;line-height:1.8;}',
+    '.sl-wrap{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;}',
+    '.sl-cap{font-size:12px;color:#5f6368;padding-bottom:7px;white-space:nowrap;}'
+  ].join('');
+
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + _formCss() + extraCss + '</style></head><body>' +
+    '<h2>\uD83C\uDFED Nouvelle ligne de production</h2>' +
+    '<form id="f">' +
+
+    '<div class="fg"><label>\u00c9tage</label>' +
     '<select id="etage">' + etageOpts + '</select></div>' +
 
-    '<div class="fg"><label>Machine \u2731</label>' +
-    '<select id="machine" required>' + machOpts + '</select></div>' +
+    '<div class="fg"><label>Recette \u2731</label>' +
+    '<select id="recipe" required onchange="sync()">' + recipeOpts + '</select></div>' +
 
-    '<div class="fg"><label>Recipe \u2731</label>' +
-    '<select id="recipe" required>' + recipeOpts + '</select></div>' +
+    '<div class="fg"><label>Machine <span style="font-weight:400;font-size:11px;color:#80868b;">\u2014 d\u00e9duite de la recette</span></label>' +
+    '<div id="mbox" class="mach-box">\u2014</div>' +
+    '<input type="hidden" id="machine"></div>' +
 
     '<div class="g2">' +
-    '<div class="fg"><label>Qty (machines)</label>' +
+    '<div class="fg"><label>Nb machines</label>' +
     '<input type="number" id="nb" value="1" min="1" max="999" required></div>' +
     '<div class="fg"><label>Overclock %</label>' +
     '<input type="number" id="oc" value="100" min="1" max="250" required></div>' +
     '</div>' +
 
-    '<div class="fg"><label>Purity (extractors only)</label>' +
-    '<select id="purity">'+
-    '<option value="Normal">Normal</option>' +
-    '<option value="Pur">Pure</option>' +
-    '<option value="Impur">Impure</option>' +
+    '<div class="fg" id="pur-row" style="display:none"><label>Puret\u00e9 du n\u0153ud</label>' +
+    '<select id="purity">' +
+    '<option value="Normal">Normal (\u00d71,0)</option>' +
+    '<option value="Pur">Pur (\u00d72,0)</option>' +
+    '<option value="Impur">Impur (\u00d70,5)</option>' +
     '</select>' +
-    '<p class="hint">Ignored for production machines.</p></div>' +
+    '<p class="hint">Pour les extracteurs (Foreuses, Pompes\u2026)</p></div>' +
 
-    '<button type="submit" class="btn bp" id="btn">\u2795 Add line</button>' +
-    '<button type="button" class="btn bc" onclick="google.script.host.close()">Cancel</button>' +
+    '<div class="fg" id="sl-row" style="display:none"><label>Somersloops</label>' +
+    '<div class="sl-wrap">' +
+    '<input type="number" id="sloop" value="0" min="0" max="0">' +
+    '<span class="sl-cap">/ <span id="slmax">0</span> emplacement(s)</span>' +
+    '</div>' +
+    '<p class="hint">Chaque Somersloop double le taux de sortie (\u00d72<sup>N</sup>).</p></div>' +
+
+    '<button type="submit" class="btn bp" id="btn" disabled>\u2795 Ajouter</button>' +
+    '<button type="button" class="btn bc" onclick="google.script.host.close()">Annuler</button>' +
     '<div id="st" class="st"></div>' +
     '</form>' +
 
     '<script>(function(){' +
-    'function go(e){' +
+    'var R2M=' + r2mJson + ',MI=' + mInfoJson + ';' +
+    'function sync(){' +
+    '  var rec=document.getElementById("recipe").value,' +
+    '      mach=R2M[rec]||"",' +
+    '      info=MI[mach]||{sloop:0,cat:""};' +
+    '  document.getElementById("machine").value=mach;' +
+    '  document.getElementById("mbox").textContent=mach||"\u2014";' +
+    '  var ext=info.cat==="Extraction";' +
+    '  document.getElementById("pur-row").style.display=ext?"":"none";' +
+    '  var hasSl=!ext&&(info.sloop||0)>0;' +
+    '  document.getElementById("sl-row").style.display=hasSl?"":"none";' +
+    '  document.getElementById("slmax").textContent=info.sloop||0;' +
+    '  var si=document.getElementById("sloop");' +
+    '  si.max=info.sloop||0;' +
+    '  si.value=Math.min(parseInt(si.value,10)||0,info.sloop||0);' +
+    '  document.getElementById("btn").disabled=!rec;' +
+    '}' +
+    'window.sync=sync;' +
+    'document.getElementById("f").addEventListener("submit",function(e){' +
     '  e.preventDefault();' +
     '  var b=document.getElementById("btn");' +
-    '  b.disabled=true; b.textContent="\u23F3 Adding...";' +
+    '  b.disabled=true;b.textContent="\u23f3 Ajout\u2026";' +
     '  google.script.run' +
     '    .withSuccessHandler(function(r){' +
     '      var s=document.getElementById("st");' +
     '      s.className="st"+(r.ok?" ok":" er");' +
-    '      s.textContent=r.ok ? "\u2713 Line added (row "+r.row+"). Recalculated." : "Error: "+r.error;' +
-    '      if(r.ok){ document.getElementById("f").reset(); }' +
-    '      b.disabled=false; b.textContent="\u2795 Add line";' +
+    '      s.textContent=r.ok?"\u2713 Ligne ajout\u00e9e (ligne "+r.row+"). Recalcul\u00e9.":"Erreur\u00a0: "+r.error;' +
+    '      if(r.ok){document.getElementById("f").reset();sync();}' +
+    '      b.disabled=false;b.textContent="\u2795 Ajouter";' +
     '    })' +
     '    .withFailureHandler(function(err){' +
     '      var s=document.getElementById("st");' +
-    '      s.className="st er"; s.textContent="Error: "+err.message;' +
-    '      b.disabled=false; b.textContent="\u2795 Add line";' +
+    '      s.className="st er";s.textContent="Erreur\u00a0: "+err.message;' +
+    '      b.disabled=false;b.textContent="\u2795 Ajouter";' +
     '    })' +
     '    .SAT_addProductionRow({' +
     '      etage:   document.getElementById("etage").value,' +
@@ -443,10 +499,10 @@ function _buildProductionFormHtml(etages, machines, recipes) {
     '      recipe:  document.getElementById("recipe").value,' +
     '      nb:      parseInt(document.getElementById("nb").value,10)||1,' +
     '      oc:      parseInt(document.getElementById("oc").value,10)||100,' +
-    '      purity:  document.getElementById("purity").value' +
+    '      purity:  document.getElementById("purity").value,' +
+    '      sloop:   parseInt(document.getElementById("sloop").value,10)||0' +
     '    });' +
-    '}' +
-    'document.getElementById("f").onsubmit=go;' +
+    '});' +
     '})()</script>' +
     '</body></html>';
 }

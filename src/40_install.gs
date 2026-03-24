@@ -496,7 +496,7 @@ function _installProduction() {
   // ── En-têtes
   var headers = [
     'Étage',       // A — saisie
-    'Machine',     // B — saisie
+    'Machine',     // B — déduite de la recette
     'Recette',     // C — saisie (dropdown depuis 📖 Recettes)
     'Qt/min OUT',  // D — calculé auto
     'Qt/min IN',   // E — calculé auto
@@ -506,13 +506,15 @@ function _installProduction() {
     'Flags',       // I — auto
     'Cause',       // J — auto
     'Qt/min STD',  // K — taux base (OC=100%) calculé auto
-    '⚡ MW'         // L — consommation électrique totale calculée auto
+    '⚡ MW',        // L — consommation électrique totale calculée auto
+    'Somersloops'  // M — saisie (nb de somersloops dans les machines)
   ];
   sh.getRange(cfg.HDR_ROW, 1, 1, headers.length).setValues([headers]);
 
   // Colonnes saisie utilisateur (A-C, F-H) = bleu
   _styleHeader(sh.getRange(cfg.HDR_ROW, 1, 1, 3));
   _styleHeader(sh.getRange(cfg.HDR_ROW, c.NB, 1, 3));
+  _styleHeader(sh.getRange(cfg.HDR_ROW, c.SLOOP, 1, 1));
 
   // Colonnes calculées auto (D-E) = vert
   _styleHeader(sh.getRange(cfg.HDR_ROW, c.OUT_RATE, 1, 2), '#2E7D32');
@@ -531,9 +533,10 @@ function _installProduction() {
     .setNumberFormat('0.00')
     .setHorizontalAlignment('center');
 
-  // ── Valeurs par défaut : OC = 100, Pureté = Normal
-  sh.getRange(cfg.DAT_ROW, c.OC,  ROWS, 1).setValue(100);
-  sh.getRange(cfg.DAT_ROW, c.PUR, ROWS, 1).setValue('Normal');
+  // ── Valeurs par défaut : OC = 100, Pureté = Normal, Somersloops = 0
+  sh.getRange(cfg.DAT_ROW, c.OC,    ROWS, 1).setValue(100);
+  sh.getRange(cfg.DAT_ROW, c.PUR,   ROWS, 1).setValue('Normal');
+  sh.getRange(cfg.DAT_ROW, c.SLOOP, ROWS, 1).setValue(0).setNumberFormat('0');
 
   // ── Formats numériques
   sh.getRange(cfg.DAT_ROW, c.NB, ROWS, 1).setNumberFormat('0');
@@ -585,8 +588,12 @@ function _installProduction() {
   sh.setColumnWidth(c.CAUSE,    200);
   sh.setColumnWidth(c.STD_RATE,  90);
   sh.setColumnWidth(c.MW,        80);
+  sh.setColumnWidth(c.SLOOP,    100);
 
-  SAT.Log.ok('Production installée (' + ROWS + ' lignes pré-formatées)');
+  sh.getRange(cfg.HDR_ROW, c.SLOOP)
+    .setNote('Nb de Somersloops dans les machines (0-4).\nChaque loop double le taux de sortie (×2^N).');
+
+  SAT.Log.ok('Production installée (' + ROWS + ' lignes pré-formatées + col Somersloops)');
 }
 
 // ─── Recettes ───────────────────────────────────────────────────────────────
@@ -685,7 +692,7 @@ function _installMachines() {
   var sh  = _clearSheet(cfg.SHEETS.MACH);
 
   var headers = ['Machine', 'Puissance (MW)', 'Entrées conv.', 'Sorties conv.',
-                 'Catégorie', 'Larg. (m)', 'Long. (m)', 'Haut. (m)'];
+                 'Catégorie', 'Larg. (m)', 'Long. (m)', 'Haut. (m)', 'Somersloops'];
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   _styleHeader(sh.getRange(1, 1, 1, headers.length), '#2E7D32');
   sh.setRowHeight(1, 28);
@@ -708,9 +715,10 @@ function _installMachines() {
 
   sh.setColumnWidth(1, 230).setColumnWidth(2, 130).setColumnWidth(3, 110)
     .setColumnWidth(4, 110).setColumnWidth(5, 120)
-    .setColumnWidth(6, 80) .setColumnWidth(7, 80).setColumnWidth(8, 80);
+    .setColumnWidth(6, 80) .setColumnWidth(7, 80).setColumnWidth(8, 80)
+    .setColumnWidth(9, 90);
 
-  SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L×H inclus]');
+  SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L×H + Somersloops]');
 }
 
 // ─── Étages ─────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.4.8',
+  VERSION: '3.4.9',
 
   // ── Version du jeu Satisfactory — change ici pour une MàJ ─
   // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
@@ -43,11 +43,11 @@ SAT.CFG = {
   // ── Colonnes feuille Production (1-based) ─────────────────
   // A(1)   B(2)      C(3)      D(4)         E(5)       F(6)  G(7)  H(8)
   // Étage  Machine   Recette   Qt/min OUT   Qt/min IN   Nb   OC%  Pureté
-  // I(9)    J(10)   K(11)            L(12)
-  // Flags   Cause   Qt/min STD   ⚡ MW total
+  // I(9)    J(10)   K(11)            L(12)       M(13)
+  // Flags   Cause   Qt/min STD   ⚡ MW total  Somersloops
   C: {
     ETAGE:    1,   // A — \u00C9tage (dropdown depuis 🏗️ \u00C9tages)
-    MACHINE:  2,   // B — Machine (dropdown depuis ⚙️ Machines)
+    MACHINE:  2,   // B — Machine (déduite de la recette)
     RECIPE:   3,   // C — Recette (dropdown depuis 📖 Recettes)
     OUT_RATE: 4,   // D — Qt/min OUT (auto depuis Recette × OC × Nb)
     IN_RATE:  5,   // E — Qt/min IN  (auto depuis Recette × OC × Nb)
@@ -57,7 +57,8 @@ SAT.CFG = {
     FLAGS:    9,   // I — Flags auto
     CAUSE:    10,  // J — Cause erreur
     STD_RATE: 11,  // K — Qt/min STD (taux base à OC=100%, sans suralimentation)
-    MW:       12   // L — ⚡ Consommation électrique totale (MW)
+    MW:       12,  // L — ⚡ Consommation électrique totale (MW)
+    SLOOP:    13   // M — Somersloops (0-4, selon machine)
   },
 
   HDR_ROW: 1,
