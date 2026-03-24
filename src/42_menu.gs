@@ -64,7 +64,6 @@ function _buildMenu() {
       .addItem('Ajouter un étage',                    'SAT_ADD_FLOOR')
       .addItem('Lister les étages',                   'SAT_LIST_FLOORS')
       .addItem('Taille des étages',                  'SAT_computeStageSizes')
-      .addItem('Marge des machines…',               'SAT_setMachineMargin')
       .addSeparator()
       .addItem('🎯 Résoudre objectifs',               'SAT_solveFromObjectives')
       .addItem('🗑️ Effacer lignes solveur',           'SAT_clearSolverRows')
@@ -467,25 +466,28 @@ function _buildProductionFormHtml(etages, machines, recipes) {
  * Results are written to the Stages sheet cols E–G.
  */
 function SAT_computeStageSizes() {
-  var cfg    = SAT.CFG;
-  var props  = PropertiesService.getDocumentProperties();
-  var margin = parseFloat(props.getProperty('SAT_MACHINE_MARGIN') || '2');
+  var cfg = SAT.CFG;
 
-  // Build machine dimension index: name → {w, l}
+  // ── 1. Index machines : nom → {larg, long, haut, cat} ────────────────
   var machSh = SAT.S.get(cfg.SHEETS.MACH);
-  var dimIdx = {};
+  var dimIdx = {}; // nom → {larg, long, haut, cat}
   if (machSh && machSh.getLastRow() >= 2) {
-    machSh.getRange(2, 1, machSh.getLastRow() - 1, 7).getValues().forEach(function(r) {
-      var name = String(r[0] || '').trim();
-      var w    = parseFloat(r[5]) || 0;   // col F — Larg. (m)
-      var l    = parseFloat(r[6]) || 0;   // col G — Long. (m)
-      if (name) dimIdx[name] = { w: w, l: l };
+    machSh.getRange(2, 1, machSh.getLastRow() - 1, 8).getValues().forEach(function(r) {
+      var nom  = String(r[0] || '').trim();
+      if (!nom) return;
+      dimIdx[nom] = {
+        larg: parseFloat(r[5]) || 0,   // col F — Larg. (m)
+        long: parseFloat(r[6]) || 0,   // col G — Long. (m)
+        haut: parseFloat(r[7]) || 0,   // col H — Haut. (m)
+        cat:  String(r[4] || '').trim() // col E — Catégorie
+      };
     });
   }
 
-  // Aggregate by stage from Production sheet
+  // ── 2. Agrégation par étage depuis la feuille Production ─────────────
+  // byStage[nom] = { machines: [{larg,long,haut,cat,nb}], missing: [] }
   var prodSh  = SAT.S.get(cfg.SHEETS.PROD);
-  var byStage = {}; // stageName → {area, count, missing[]}
+  var byStage = {};
   if (prodSh && prodSh.getLastRow() >= cfg.DAT_ROW) {
     prodSh.getRange(cfg.DAT_ROW, 1, prodSh.getLastRow() - cfg.DAT_ROW + 1, cfg.C.NB)
       .getValues().forEach(function(r) {
@@ -493,75 +495,101 @@ function SAT_computeStageSizes() {
         var machine = String(r[cfg.C.MACHINE - 1] || '').trim();
         var nb      = Math.max(0, parseFloat(r[cfg.C.NB - 1]) || 0);
         if (!etage || !machine || nb <= 0) return;
-        if (!byStage[etage]) byStage[etage] = { area: 0, count: 0, missing: [] };
+        if (!byStage[etage]) byStage[etage] = { machines: [], missing: [] };
         var dim = dimIdx[machine];
-        if (dim && dim.w > 0 && dim.l > 0) {
-          byStage[etage].area  += nb * (dim.w + 2 * margin) * (dim.l + 2 * margin);
-          byStage[etage].count += nb;
+        if (dim && dim.larg > 0 && dim.long > 0) {
+          // Regrouper les machines identiques
+          var found = false;
+          byStage[etage].machines.forEach(function(m) {
+            if (m.nom === machine) { m.nb += nb; found = true; }
+          });
+          if (!found) byStage[etage].machines.push({ nom: machine, nb: nb,
+            larg: dim.larg, long: dim.long, haut: dim.haut, cat: dim.cat });
         } else {
-          byStage[etage].count += nb;
           if (byStage[etage].missing.indexOf(machine) < 0)
             byStage[etage].missing.push(machine);
         }
       });
   }
 
-  // Write results to Stages sheet cols E–G
+  // ── 3. Lire la feuille Étages (cols A-F) ─────────────────────────────
   var etagSh = SAT.S.get(cfg.SHEETS.ETAG);
-  if (!etagSh) { SpreadsheetApp.getUi().alert('Stages sheet not found.'); return; }
-
-  var hdrRange = etagSh.getRange(1, 5, 1, 3);
-  hdrRange.setValues([['Surface (m²)', 'Fondations', 'Marge (m)']]);
-  hdrRange.setFontWeight('bold').setBackground('#6A1B9A').setFontColor('#ffffff');
-  etagSh.setColumnWidth(5, 110).setColumnWidth(6, 100).setColumnWidth(7, 90);
+  if (!etagSh) { SpreadsheetApp.getUi().alert('Feuille Étages introuvable.'); return; }
 
   var lastRow = etagSh.getLastRow();
-  if (lastRow >= 2) {
-    etagSh.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function(r, i) {
-      var name = String(r[0] || '').trim();
-      var sd   = byStage[name] || { area: 0, count: 0 };
-      var area = Math.round(sd.area);
-      var fnd  = area > 0 ? Math.ceil(area / 64) : '—';
-      etagSh.getRange(i + 2, 5, 1, 3).setValues([[area > 0 ? area : '—', fnd, margin]]);
-    });
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert('Aucun étage dans la feuille Étages.');
+    return;
   }
 
-  // Summary
-  var missingList = [];
-  Object.keys(byStage).forEach(function(s) {
-    if (byStage[s].missing.length > 0)
-      missingList.push(s + ': ' + byStage[s].missing.join(', '));
+  var etagRows = etagSh.getRange(2, 1, lastRow - 1, 6).getValues();
+
+  // ── 4. Calcul et écriture par étage ──────────────────────────────────
+  var results  = [];
+  var warnings = [];
+
+  etagRows.forEach(function(row, i) {
+    var nom       = String(row[0] || '').trim(); // col A
+    var ascenseur = String(row[4] || '').trim().toLowerCase() === 'oui'; // col E
+    var aeration  = String(row[5] || '').trim().toLowerCase() === 'oui'; // col F
+
+    if (!nom) { results.push(['', '', '', '', '', '']); return; }
+
+    var sd = byStage[nom];
+    if (!sd || sd.machines.length === 0) {
+      results.push(['', '—', '—', '—', '—', '—']);
+      if (sd && sd.missing.length > 0)
+        warnings.push(nom + ': ' + sd.missing.join(', '));
+      return;
+    }
+
+    // Isolement nucléaire : au moins une machine de catégorie 'Énergie'
+    var isNuclear = sd.machines.some(function(m) { return m.cat === '\u00C9nergie'; });
+
+    // Hauteur : max(haut) + 2 m de dégagement
+    var maxHaut = 0;
+    sd.machines.forEach(function(m) { if (m.haut > maxHaut) maxHaut = m.haut; });
+    var hauteur = maxHaut + 2;
+
+    // Modèle bus central (machines des deux côtés d'un bus de convoyeurs) :
+    //   Largeur = 2 × max(Long + 2) + (ascenseur ? 4 m : 0)
+    //   Longueur = Σ(nb × (Larg + 2)) + (aération ? 4 m : 0)
+    var maxLong = 0;
+    var sumLarg = 0;
+    sd.machines.forEach(function(m) {
+      if (m.long + 2 > maxLong) maxLong = m.long + 2;
+      sumLarg += m.nb * (m.larg + 2);
+    });
+    var largeur  = 2 * maxLong + (ascenseur ? 4 : 0);
+    var longueur = sumLarg      + (aeration  ? 4 : 0);
+    var surface  = largeur * longueur;
+    var fondations = surface > 0 ? Math.ceil(surface / 64) : 0;
+
+    results.push([
+      isNuclear ? '\u26A0\uFE0F ISOL\u00C9' : '',
+      hauteur,
+      largeur,
+      longueur,
+      surface,
+      fondations
+    ]);
+
+    if (sd.missing.length > 0)
+      warnings.push(nom + ': ' + sd.missing.join(', '));
   });
-  var msg = 'Results written to the Stages sheet (cols E\u2013G).\n' +
-    'Margin: ' + margin + ' m per side  \u2014  1 foundation = 8\u00d78 m = 64 m\u00b2\n' +
-    'Tip: edit W/L columns in the Machines sheet to fine-tune values.';
-  if (missingList.length > 0)
-    msg += '\n\n\u26a0 No dimensions found for:\n' + missingList.join('\n');
 
-  SpreadsheetApp.getActiveSpreadsheet().toast('Stage sizes written to Stages sheet.', 'S.A.T.', 4);
-  SpreadsheetApp.getUi().alert('Stage Sizes', msg, SpreadsheetApp.getUi().ButtonSet.OK);
-}
+  // Écriture en une seule opération (cols G–L = 7–12)
+  etagSh.getRange(2, 7, results.length, 6).setValues(results);
 
-/**
- * Prompts the user to update the clearance margin (meters per side) added
- * around each machine footprint when computing stage sizes.
- * Stored as document property SAT_MACHINE_MARGIN.
- */
-function SAT_setMachineMargin() {
-  var ui  = SpreadsheetApp.getUi();
-  var cur = PropertiesService.getDocumentProperties().getProperty('SAT_MACHINE_MARGIN') || '2';
-  var r   = ui.prompt(
-    'Machine clearance margin',
-    'Clearance added on EACH side of a machine footprint (meters).\n' +
-    'Current value: ' + cur + ' m\n\n' +
-    'Example: 2 m margin on a 10\u00d79 m machine \u2192 effective slot = 14\u00d713 m.',
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var val = parseFloat(r.getResponseText().trim());
-  if (isNaN(val) || val < 0) { ui.alert('Invalid value. Enter a number ≥ 0.'); return; }
-  PropertiesService.getDocumentProperties().setProperty('SAT_MACHINE_MARGIN', String(val));
-  ui.alert('Margin set to ' + val + ' m.\nRun \u201cStage sizes\u201d to recompute.');
+  // ── 5. Résumé ─────────────────────────────────────────────────────────
+  var msg = 'Dimensions écrites dans la feuille Étages (cols G–L).\n' +
+    'Modèle bus central  \u2014  1 fondation = 8\u00d78 m = 64 m\u00b2\n' +
+    'Ascenseur (+4 m larg.)  \u2014  A\u00e9ration (+4 m long.)';
+  if (warnings.length > 0)
+    msg += '\n\n\u26a0 Dimensions manquantes pour :\n' + warnings.join('\n');
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('Dimensions des étages mises à jour.', 'S.A.T.', 4);
+  SpreadsheetApp.getUi().alert('Tailles des étages', msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 // ─── Archivage & migration ───────────────────────────────────────────────────

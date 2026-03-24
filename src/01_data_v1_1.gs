@@ -13,34 +13,36 @@ SAT.DATA = SAT.DATA || {};
 SAT.DATA['1.1'] = {
 
   // ── Machines (noms officiels FR in-game) ──────────────────
-  // [Nom, MW, Entrées conv., Sorties conv., Catégorie, Larg.(m), Long.(m)]
-  // Dimensions : emprise au sol du corps de la machine (sans bras convoyeurs).
-  // Source : satisfactory.wiki.gg — éditable dans la feuille ⚙️ Machines.
+  // [Nom, MW, Entrées conv., Sorties conv., Catégorie, Larg.(m), Long.(m), Haut.(m)]
+  // Dimensions : valeurs exactes des Infobox wiki (action=raw) → size_width × size_length × size_height
+  // Source : satisfactory.wiki.gg — consult. mai 2026, version 1.1.
   MACHINES: [
-    // Extraction
-    ['Foreuse Mk.1',               4,  0, 1, 'Extraction',    10, 10],
-    ['Foreuse Mk.2',              12,  0, 1, 'Extraction',    10, 10],
-    ['Foreuse Mk.3',              30,  0, 1, 'Extraction',    10, 10],
-    ['Pompe à eau',               20,  0, 1, 'Extraction',    20, 20],
-    ['Puit de pétrole',           40,  0, 1, 'Extraction',    10, 10],
-    ['Pressuriseur de puits de ressources', 150, 0, 0, 'Extraction', 10, 10],
-    // Fusion
-    ['Fonderie',                   4,  1, 1, 'Fusion',         6,  9],
-    ['Fonderie avancée',          16,  2, 1, 'Fusion',        10, 14],
-    // Production
-    ['Constructeur',               4,  1, 1, 'Production',    10,  9],
-    ['Assembleuse',               15,  2, 1, 'Production',    20, 16],
-    ['Façonneuse',                55,  4, 1, 'Production',    24, 22],
-    // Raffinage
-    ['Raffinerie',                30,  1, 2, 'Raffinage',     10, 20],
-    ['Mélangeur',                 75,  2, 2, 'Raffinage',     16, 20],
-    ['Conditionneur',             10,  2, 2, 'Conditionnement', 12, 12],
-    // Avancé
-    ['Accélérateur de particules',500, 2, 1, 'Avancé',        24, 38],
-    ['Encodeur quantique',       1000, 4, 2, 'Avancé',        22, 26],
-    ['Convertisseur',            100,  2, 1, 'Avancé',        20, 20],
-    // Énergie
-    ['Centrale nucléaire',         0,  2, 1, 'Énergie',       36, 44]
+    // Extraction — Miner Mk.1/2/3 : W=6, L=14, H=18
+    ['Foreuse Mk.1',               4,  0, 1, 'Extraction',     6, 14, 18],
+    ['Foreuse Mk.2',              12,  0, 1, 'Extraction',     6, 14, 18],
+    ['Foreuse Mk.3',              30,  0, 1, 'Extraction',     6, 14, 18],
+    // Water Extractor : W=20, L=19.5, H=26 | Oil Extractor : W=8, L=14, H=20
+    ['Pompe à eau',               20,  0, 1, 'Extraction',    20, 20, 26],
+    ['Puit de pétrole',           40,  0, 1, 'Extraction',     8, 14, 20],
+    // Resource Well Pressurizer : W=20, L=20, H=23
+    ['Pressuriseur de puits de ressources', 150, 0, 0, 'Extraction', 20, 20, 23],
+    // Fusion — Smelter : W=5, L=10, H=9 | Foundry : W=10, L=9, H=9
+    ['Fonderie',                   4,  1, 1, 'Fusion',         5, 10,  9],
+    ['Fonderie avancée',          16,  2, 1, 'Fusion',        10,  9,  9],
+    // Production — Constructor : W=7.9, L=9.9, H=8 | Assembler : W=9, L=16, H=11 | Manufacturer : W=18, L=20, H=12
+    ['Constructeur',               4,  1, 1, 'Production',     8, 10,  8],
+    ['Assembleuse',               15,  2, 1, 'Production',     9, 16, 11],
+    ['Façonneuse',                55,  4, 1, 'Production',    18, 20, 12],
+    // Raffinage — Refinery : W=10, L=22, H=30 | Blender : W=18, L=16, H=15 | Packager : W=8, L=8, H=12
+    ['Raffinerie',                30,  1, 2, 'Raffinage',     10, 22, 30],
+    ['Mélangeur',                 75,  2, 2, 'Raffinage',     18, 16, 15],
+    ['Conditionneur',             10,  2, 2, 'Conditionnement', 8,  8, 12],
+    // Avancé — Particle Accelerator : W=24, L=38, H=32 | Quantum Encoder : W=22, L=50, H=18 | Converter : W=16, L=16, H=18
+    ['Accélérateur de particules',500, 2, 1, 'Avancé',        24, 38, 32],
+    ['Encodeur quantique',       1000, 4, 2, 'Avancé',        22, 50, 18],
+    ['Convertisseur',            100,  2, 1, 'Avancé',        16, 16, 18],
+    // Énergie — Nuclear Power Plant : W=36, L=43, H=39
+    ['Centrale nucléaire',         0,  2, 1, 'Énergie',       36, 43, 39]
   ],
 
   // ── Ressources (noms officiels FR in-game) ────────────────

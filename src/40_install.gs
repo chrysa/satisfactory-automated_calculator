@@ -678,13 +678,14 @@ function _installResources() {
 
 // ─── Machines ────────────────────────────────────────────────────────────────
 //
-// SAT.CFG.MACHINES = [[Nom, MW, Entrées conv., Sorties conv., Catégorie], ...]
+// SAT.CFG.MACHINES = [[Nom, MW, Entrées conv., Sorties conv., Catégorie, Larg.(m), Long.(m), Haut.(m)]]
 
 function _installMachines() {
   var cfg = SAT.CFG;
   var sh  = _clearSheet(cfg.SHEETS.MACH);
 
-  var headers = ['Machine', 'Puissance (MW)', 'Entrées conv.', 'Sorties conv.', 'Catégorie', 'Larg. (m)', 'Long. (m)'];
+  var headers = ['Machine', 'Puissance (MW)', 'Entrées conv.', 'Sorties conv.',
+                 'Catégorie', 'Larg. (m)', 'Long. (m)', 'Haut. (m)'];
   sh.getRange(1, 1, 1, headers.length).setValues([headers]);
   _styleHeader(sh.getRange(1, 1, 1, headers.length), '#2E7D32');
   sh.setRowHeight(1, 28);
@@ -707,9 +708,9 @@ function _installMachines() {
 
   sh.setColumnWidth(1, 230).setColumnWidth(2, 130).setColumnWidth(3, 110)
     .setColumnWidth(4, 110).setColumnWidth(5, 120)
-    .setColumnWidth(6, 80) .setColumnWidth(7, 80);
+    .setColumnWidth(6, 80) .setColumnWidth(7, 80).setColumnWidth(8, 80);
 
-  SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L inclus]');
+  SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L×H inclus]');
 }
 
 // ─── Étages ─────────────────────────────────────────────────────────────────
@@ -717,29 +718,61 @@ function _installMachines() {
 // Pré-remplie avec 3 étages exemples (à personnaliser).
 // La validation dropdown de la colonne A (Production) pointe vers cette feuille.
 
+// ── Colonnes feuille Étages ────────────────────────────────────────────────
+// A(1)   B(2)    C(3)          D(4)   E(5)       F(6)       
+// Étage  Ordre   Description   Note   Ascenseur  Aération
+// G(7)        H(8)       I(9)       J(10)      K(11)       L(12)
+// Nucléaire   Haut.(m)   Larg.(m)   Long.(m)   Surface m²  Fondations
+
 function _installFloors() {
   var cfg = SAT.CFG;
   var sh  = _clearSheet(cfg.SHEETS.ETAG);
 
-  var headers = ['Étage', 'Ordre', 'Description', 'Note'];
-  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-  _styleHeader(sh.getRange(1, 1, 1, headers.length), '#6A1B9A');
+  // En-têtes : cols A-D = saisie utilisateur, cols E-F = paramètres, cols G-L = calculés
+  var hdrUser   = ['\u00c9tage', 'Ordre', 'Description', 'Note'];
+  var hdrParams = ['Ascenseur', 'A\u00e9ration'];
+  var hdrCalc   = ['\u26a0\ufe0f Nucl\u00e9aire', 'Haut. (m)', 'Larg. (m)', 'Long. (m)',
+                   'Surface (m\u00b2)', 'Fondations'];
+
+  sh.getRange(1, 1, 1, hdrUser.length).setValues([hdrUser]);
+  _styleHeader(sh.getRange(1, 1, 1, hdrUser.length), '#6A1B9A');
+
+  sh.getRange(1, 5, 1, hdrParams.length).setValues([hdrParams]);
+  _styleHeader(sh.getRange(1, 5, 1, hdrParams.length), '#1565C0'); // bleu — paramètres
+
+  sh.getRange(1, 7, 1, hdrCalc.length).setValues([hdrCalc]);
+  _styleHeader(sh.getRange(1, 7, 1, hdrCalc.length), '#2E7D32');   // vert — calculé
+
   sh.setRowHeight(1, 28);
   sh.setFrozenRows(1);
 
-  // Étages exemples — à personnaliser selon votre usine
+  // Dropdowns oui/non pour Ascenseur (col E) et Aération (col F)
+  var ouiNon = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['oui', 'non'], true).build();
+  sh.getRange(2, 5, 200, 1).setDataValidation(ouiNon); // Ascenseur
+  sh.getRange(2, 6, 200, 1).setDataValidation(ouiNon); // Aération
+
+  // Cols G-L en lecture seule (fond gris clair)
+  sh.getRange(2, 7, 200, 6).setBackground('#F5F5F5');
+
+  // Étages exemples
   var exemples = [
-    ['Étage 0 — Extraction',  1, 'Foreuses, pompes, puits (matières premières)', ''],
-    ['Étage 1 — Fonderie',    2, 'Lingots et matériaux de base',                 ''],
-    ['Étage 2 — Production',  3, 'Composants intermédiaires et avancés',         '']
+    ['\u00c9tage 0 \u2014 Extraction',  1, 'Foreuses, pompes, puits (mati\u00e8res premi\u00e8res)', '', 'non', 'non'],
+    ['\u00c9tage 1 \u2014 Fonderie',    2, 'Lingots et mat\u00e9riaux de base',                 '', 'oui', 'oui'],
+    ['\u00c9tage 2 \u2014 Production',  3, 'Composants interm\u00e9diaires et avanc\u00e9s',      '', 'oui', 'oui']
   ];
-  sh.getRange(2, 1, exemples.length, 4).setValues(exemples);
+  sh.getRange(2, 1, exemples.length, 6).setValues(exemples);
   sh.getRange(2, 1, exemples.length, 4).setFontColor('#616161').setFontStyle('italic');
 
-  sh.setColumnWidth(1, 200).setColumnWidth(2, 70)
-    .setColumnWidth(3, 280).setColumnWidth(4, 200);
+  // Largeurs de colonnes
+  sh.setColumnWidth(1, 200).setColumnWidth(2, 60)
+    .setColumnWidth(3, 280).setColumnWidth(4, 180)
+    .setColumnWidth(5, 90) .setColumnWidth(6, 90) //  params
+    .setColumnWidth(7, 110).setColumnWidth(8, 85) //  nucl., haut.
+    .setColumnWidth(9, 85) .setColumnWidth(10, 85) // larg., long.
+    .setColumnWidth(11, 95).setColumnWidth(12, 90); // surface, fondations
 
-  SAT.Log.ok('Étages — 3 exemples pré-remplis (à personnaliser)');
+  SAT.Log.ok('\u00c9tages \u2014 3 exemples pr\u00e9-remplis (\u00e0 personnaliser)');
 }
 
 // ─── Objectifs (Solver targets) ────────────────────────────────────────────────
