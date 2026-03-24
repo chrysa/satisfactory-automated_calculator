@@ -11,7 +11,7 @@
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.4.3',
+  VERSION: '3.4.6',
 
   // ── Version du jeu Satisfactory — change ici pour une MàJ ─
   // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
@@ -22,10 +22,23 @@ SAT.CFG = {
     PROD: '\u{1F3ED} Production',       // 1  ← onglet le plus utilisé
     ETAG: '\u{1F3D7}\uFE0F \u00C9tages', // 2
     DASH: '\u{1F4CA} Tableau de bord',   // 3
-    REC:  '\u{1F4D6} Recettes',          // 4
-    RES:  '\u{1F48E} Ressources',        // 5
-    MACH: '\u2699\uFE0F Machines'        // 6
+    OBJ:  '\u{1F3AF} Objectifs',         // 4  ← solveur / objectifs de production
+    REC:  '\u{1F4D6} Recettes',          // 5
+    RES:  '\u{1F48E} Ressources',        // 6
+    MACH: '\u2699\uFE0F Machines'        // 7
   },
+
+  // ── Phases de jeu (tiers débloqués par phase) ──────────────
+  // Chaque phase correspond à une étape de progression dans Satisfactory.
+  // Les recettes ont un champ Tier : T0..T9, MAM, ALT (alternatives)
+  PHASES: [
+    { id: 'P1', label: 'Phase 1 — Basiques',    tiers: ['T0', 'T1', 'T2'],        color: '#C8E6C9' },
+    { id: 'P2', label: 'Phase 2 — Acier',       tiers: ['T3', 'T4'],              color: '#FFF9C4' },
+    { id: 'P3', label: 'Phase 3 — Pétrole',     tiers: ['T5', 'T6', 'MAM'],       color: '#FFE0B2' },
+    { id: 'P4', label: 'Phase 4 — Aluminium',   tiers: ['T7'],                    color: '#B3E5FC' },
+    { id: 'P5', label: 'Phase 5 — Avancé',      tiers: ['T8'],                    color: '#E1BEE7' },
+    { id: 'P6', label: 'Phase 6 — \u00c9.M.E.', tiers: ['T9'],                    color: '#FFCDD2' }
+  ],
 
   // ── Colonnes feuille Production (1-based) ─────────────────
   // A(1)   B(2)      C(3)      D(4)         E(5)       F(6)  G(7)  H(8)

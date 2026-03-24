@@ -35,8 +35,10 @@ function SAT_install() {
   // Auto-computed columns (D,E,I,J,K,L) are excluded — they are recalculated.
   var _backupProd  = null; // [[etage, machine, recipe, nb, oc, purity], ...]
   var _backupEtag  = null; // [[col1, col2, col3, col4], ...]
+  var _backupObj   = null; // [[item, qt, phase, etage_cible, statut, nb, ressources], ...]
   var _prodSh = ss.getSheetByName(cfg.SHEETS.PROD);
   var _etagSh = ss.getSheetByName(cfg.SHEETS.ETAG);
+  var _objSh  = ss.getSheetByName(cfg.SHEETS.OBJ);
   var c = cfg.C;
   if (_prodSh && _prodSh.getLastRow() >= cfg.DAT_ROW) {
     var _nRows = _prodSh.getLastRow() - cfg.DAT_ROW + 1;
@@ -52,6 +54,11 @@ function SAT_install() {
   if (_etagSh && _etagSh.getLastRow() >= 2) {
     var _eRows = _etagSh.getLastRow() - 1;
     _backupEtag = _etagSh.getRange(2, 1, _eRows, 4).getValues();
+  }
+  if (_objSh && _objSh.getLastRow() >= 2) {
+    var _oRows = _objSh.getLastRow() - 1;
+    _backupObj = _objSh.getRange(2, 1, _oRows, 7).getValues()
+      .filter(function(row) { return row[0] !== ''; });
   }
 
   // ── Full reset ─────────────────────────────────────────────────────────────
@@ -70,6 +77,7 @@ function SAT_install() {
   _installResources();
   _installMachines();
   _installFloors();
+  _installObjectives();
 
   // Supprimer le placeholder AVANT les validations (qui ont besoin des vraies feuilles)
   try { ss.deleteSheet(_tmpSh); } catch(e) {}
@@ -97,12 +105,18 @@ function SAT_install() {
     _newEtagSh.getRange(2, 1, _backupEtag.length, 4).setValues(_backupEtag);
     Logger.log('Restored ' + _backupEtag.length + ' floor rows');
   }
+  var _newObjSh = ss.getSheetByName(cfg.SHEETS.OBJ);
+  if (_backupObj && _backupObj.length > 0 && _newObjSh) {
+    _newObjSh.getRange(2, 1, _backupObj.length, 7).setValues(_backupObj);
+    Logger.log('Restored ' + _backupObj.length + ' objective rows');
+  }
 
   // Réordonner les onglets (les feuilles sont déjà dans le bon ordre d'insertion,
   // mais on repositionne explicitement pour plus de robustesse)
   var order = [
     cfg.SHEETS.DASH,
     cfg.SHEETS.PROD,
+    cfg.SHEETS.OBJ,
     cfg.SHEETS.REC,
     cfg.SHEETS.RES,
     cfg.SHEETS.MACH,
@@ -278,6 +292,28 @@ function _installDashboard() {
   });
   sh.getRange(13, 1, elecLabels.length, 2)
     .setBorder(true, true, true, true, true, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
+
+  // ── Section OBJECTIFS SOLVEUR (A16–B20) ────────────────────────────────────
+  sh.setRowHeight(16, 6);
+  sh.getRange(16, 1, 1, 4).setBackground('#EDE7F6');
+  secStyle(sh.getRange(17, 1, 1, 4), '#4A148C', '#FFFFFF');
+  sh.getRange(17, 1).setValue('  \uD83C\uDFAF Objectifs solveur');
+  sh.setRowHeight(17, 26);
+  var objLabels = [
+    'Objectifs d\u00e9finis',
+    'Actifs (\u25BA)',
+    'R\u00e9solus (Nb machines > 0)',
+    'Phase dominante'
+  ];
+  objLabels.forEach(function(lbl, i) {
+    sh.getRange(18 + i, 1).setValue(lbl)
+      .setBackground('#F3E5F5').setFontSize(10).setFontWeight('bold');
+    sh.getRange(18 + i, 2).setBackground('#FFFFFF').setFontSize(11)
+      .setFontWeight('bold').setFontColor('#6A1B9A').setHorizontalAlignment('center');
+    sh.setRowHeight(18 + i, 24);
+  });
+  sh.getRange(17, 1, objLabels.length + 1, 2)
+    .setBorder(true, true, true, true, true, true, '#CE93D8', SpreadsheetApp.BorderStyle.SOLID);
 
   // ── Section TOP RESSOURCES (E4:H12) ────────────────────────────────────────
   secStyle(sh.getRange(4, 5, 1, 4), '#2E7D32', '#FFFFFF');
@@ -706,8 +742,53 @@ function _installFloors() {
   SAT.Log.ok('Étages — 3 exemples pré-remplis (à personnaliser)');
 }
 
-// ─── Validations (Production) ────────────────────────────────────────────────
+// ─── Objectifs (Solver targets) ────────────────────────────────────────────────
+function _installObjectives() {
+  var cfg = SAT.CFG;
+  var sh  = _clearSheet(cfg.SHEETS.OBJ);
 
+  // Header row
+  var headers = ['Item à produire', 'Qt/min cible', 'Phase', 'Étage cible',
+                 'Statut', 'Nb machines', 'Ressources brutes requises'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  _styleHeader(sh.getRange(1, 1, 1, headers.length), '#4A148C');
+  sh.setRowHeight(1, 28);
+  sh.setFrozenRows(1);
+
+  // Phase dropdown values
+  var phaseValues = cfg.PHASES.map(function(p) { return p.id + ' — ' + p.label; }).join(',');
+  var phaseRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(cfg.PHASES.map(function(p) { return p.id; }), true)
+    .build();
+  sh.getRange(2, 3, 200, 1).setDataValidation(phaseRule);
+
+  // Make-active / skip dropdown for col E (Statut)
+  var statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['▶ Actif', 'skip'], true).build();
+  sh.getRange(2, 5, 200, 1).setDataValidation(statusRule);
+
+  // Example rows (one per phase)
+  var exemples = [
+    ['Circuit imprimé',               7.5,  'P3', 'Étage 3 — Pétrole',  '▶ Actif', '', ''],
+    ['Superordinateur',               1.875,'P4', 'Étage 4 — Avance',  'skip',     '', ''],
+    ['Moteur',                        5,    'P2', 'Étage 2 — Acier',   'skip',     '', '']
+  ];
+  sh.getRange(2, 1, exemples.length, headers.length).setValues(exemples);
+  sh.getRange(2, 1, exemples.length, headers.length)
+    .setFontColor('#616161').setFontStyle('italic');
+
+  // Column widths
+  sh.setColumnWidth(1, 220).setColumnWidth(2, 100).setColumnWidth(3, 90)
+    .setColumnWidth(4, 200).setColumnWidth(5, 120)
+    .setColumnWidth(6, 100).setColumnWidth(7, 300);
+
+  // Protect status + machine count columns (written by solver)
+  sh.getRange(2, 5, 200, 3).setBackground('#F5F5F5');
+
+  SAT.Log.ok('Objectifs — feuille solveur installée');
+}
+
+// ─── Validations (Production) ────────────────────────────────────────────────
 function _setupValidations() {
   var cfg  = SAT.CFG;
   var c    = cfg.C;

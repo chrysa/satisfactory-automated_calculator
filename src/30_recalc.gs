@@ -48,6 +48,38 @@ function _refreshDashboard(stats) {
     dash.getRange(14, 2).setValue(maxMW);
     dash.getRange(15, 2).setValue(new Date().toLocaleString('fr-FR'));
 
+    // ── Stats objectifs solveur (B17:B20) ──────────────────────────────────
+    try {
+      var objSh = SAT.S.get(cfg.SHEETS.OBJ);
+      if (objSh && objSh.getLastRow() >= 2) {
+        var objData = objSh.getRange(2, 1, objSh.getLastRow() - 1, 5).getValues()
+          .filter(function(row) { return row[0] !== ''; });
+        var nbTotal   = objData.length;
+        var nbActifs  = objData.filter(function(r) { return r[4] === '▶ Actif'; }).length;
+        var nbResolus = objData.filter(function(r) {
+          return r[4] === '▶ Actif' && String(r[5]) !== '' && Number(r[5]) > 0;
+        }).length;
+        var phaseCounts = {};
+        objData.forEach(function(r) {
+          if (r[2]) phaseCounts[r[2]] = (phaseCounts[r[2]] || 0) + 1;
+        });
+        var dominantPhase = Object.keys(phaseCounts).reduce(function(a, b) {
+          return phaseCounts[a] >= phaseCounts[b] ? a : b;
+        }, 'P1');
+        dash.getRange(18, 2).setValue(nbTotal);
+        dash.getRange(19, 2).setValue(nbActifs);
+        dash.getRange(20, 2).setValue(nbResolus);
+        dash.getRange(21, 2).setValue(dominantPhase);
+      } else {
+        dash.getRange(18, 2).setValue(0);
+        dash.getRange(19, 2).setValue(0);
+        dash.getRange(20, 2).setValue(0);
+        dash.getRange(21, 2).setValue('—');
+      }
+    } catch(eObj) {
+      Logger.log('WARN objectives stats: ' + eObj.message);
+    }
+
     // ── Top ressources produites (E6:H13 — 8 lignes) ──────────────────────
     var top = stats.topResources || [];
     for (var i = 0; i < 8; i++) {
