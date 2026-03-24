@@ -19,7 +19,7 @@ SAT.Engine = {
     var last = sh.getLastRow();
     if (last < cfg.DAT_ROW) return [];
 
-    var data = sh.getRange(cfg.DAT_ROW, 1, last - cfg.DAT_ROW + 1, cfg.C.CAUSE)
+    var data = sh.getRange(cfg.DAT_ROW, 1, last - cfg.DAT_ROW + 1, cfg.C.SLOOP)
                  .getValues();
     var c       = cfg.C;
     var idx     = SAT.getRecipeIndex();
@@ -35,9 +35,12 @@ SAT.Engine = {
       var nb      = SAT.U.num(r[c.NB - 1]);
       var pur     = SAT.U.str(r[c.PUR - 1]) || 'Normal';
       var purMult = cfg.PURITY[pur] || 1.0;
+      var sloop   = Math.max(0, Math.min(4, parseInt(r[c.SLOOP - 1], 10) || 0));
       var recipe  = SAT.U.str(r[c.RECIPE - 1]);
       var machine = SAT.U.str(r[c.MACHINE - 1]);
       var ocF     = oc / 100;
+      // Somersloops : chaque loop double le taux de sortie (×2^N) et la conso (×2^N)
+      var sloopMult = Math.pow(2, sloop);
 
       var rec     = recipe ? idx[recipe] : null;
 
@@ -50,17 +53,18 @@ SAT.Engine = {
       if (rec) {
         inRate1  = Math.round(rec.inRate1  * ocF * (isExtractor ? purMult : 1) * 100) / 100;
         inRate2  = Math.round(rec.inRate2  * ocF * 100) / 100;
-        outRate1 = Math.round(rec.outRate1 * ocF * (isExtractor ? purMult : 1) * 100) / 100;
-        outRate2 = Math.round(rec.outRate2 * ocF * 100) / 100;
-        // Taux de base à OC=100% (sans suralimentation, même pureté du nœud)
+        // Somersloops : appliqués aux sorties uniquement (les entrées ne changent pas)
+        outRate1 = Math.round(rec.outRate1 * ocF * (isExtractor ? purMult : 1) * sloopMult * 100) / 100;
+        outRate2 = Math.round(rec.outRate2 * ocF * sloopMult * 100) / 100;
+        // Taux STD = taux base à OC=100% sans Somersloops (référence)
         stdRate1 = Math.round(rec.outRate1 * (isExtractor ? purMult : 1) * 100) / 100;
       }
 
-      // Consommation électrique : MW_base × Nb × (OC%)^1,321
+      // Consommation électrique : MW_base × Nb × (OC%)^1,321 × 2^sloop
       var machineName = machine || (rec ? rec.machine : '');
       var baseMW      = machIdx[machineName] || 0;
       if (baseMW > 0) {
-        totalMW = Math.round(baseMW * nb * Math.pow(ocF, 1.321) * 10) / 10;
+        totalMW = Math.round(baseMW * nb * Math.pow(ocF, 1.321) * sloopMult * 10) / 10;
       }
 
       rows.push({
@@ -82,6 +86,7 @@ SAT.Engine = {
         nominalMW:   baseMW * nb,
         nb:          nb,
         oc:          oc,
+        sloop:       sloop,
         purity:      pur,
         rec:         rec
       });
@@ -146,6 +151,9 @@ SAT.Engine = {
         var pwr = Math.round(Math.pow(row.oc / 100, 1.321) * 100);
         flags.push('\u26A1 OC ' + row.oc + '% = ' + pwr + '% MW');
       }
+      if ((row.sloop || 0) > 0) {
+        flags.push('\uD83D\uDD04 Sloop \u00d7' + Math.pow(2, row.sloop) + ' (' + row.sloop + ' loop' + (row.sloop > 1 ? 's' : '') + ')');
+      }
       if (NUCLEAR.test(row.machine)) {
         flags.push('\u2622\uFE0F D\u00e9chets: ' + (row.nb * 12) + '/min');
       }
@@ -189,7 +197,7 @@ SAT.Engine = {
     if (!sh || rowNum < cfg.DAT_ROW) return;
 
     var c = cfg.C;
-    var r = sh.getRange(rowNum, 1, 1, c.CAUSE).getValues()[0];
+    var r = sh.getRange(rowNum, 1, 1, c.SLOOP).getValues()[0];
 
     var etage = SAT.U.str(r[c.ETAGE - 1]);
     if (!etage) return;
@@ -200,6 +208,8 @@ SAT.Engine = {
     var nb      = SAT.U.num(r[c.NB - 1]);
     var pur     = SAT.U.str(r[c.PUR - 1]) || 'Normal';
     var purMult = cfg.PURITY[pur] || 1.0;
+    var sloop   = Math.max(0, Math.min(4, parseInt(r[c.SLOOP - 1], 10) || 0));
+    var sloopMult = Math.pow(2, sloop);
     var recipe  = SAT.U.str(r[c.RECIPE - 1]);
     var machine = SAT.U.str(r[c.MACHINE - 1]);
     var ocF     = oc / 100;
@@ -210,7 +220,7 @@ SAT.Engine = {
     var machIdx     = SAT.getMachineIndex();
     var baseMW      = machIdx[machineName] || 0;
     var stdRate1    = rec ? Math.round(rec.outRate1 * (isExt ? purMult : 1) * 100) / 100 : 0;
-    var totalMW     = baseMW > 0 ? Math.round(baseMW * nb * Math.pow(ocF, 1.321) * 10) / 10 : 0;
+    var totalMW     = baseMW > 0 ? Math.round(baseMW * nb * Math.pow(ocF, 1.321) * sloopMult * 10) / 10 : 0;
 
     this.writeFlags([{
       row:         rowNum,
@@ -219,13 +229,14 @@ SAT.Engine = {
       recipe:      recipe,
       isExtractor: isExt,
       rec:         rec,
-      outRate1:    rec ? Math.round(rec.outRate1 * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
+      outRate1:    rec ? Math.round(rec.outRate1 * ocF * (isExt ? purMult : 1) * sloopMult * 100) / 100 : 0,
       inRate1:     rec ? Math.round(rec.inRate1  * ocF * (isExt ? purMult : 1) * 100) / 100 : 0,
       stdRate1:    stdRate1,
       totalMW:     totalMW,
       nominalMW:   baseMW * nb,
       nb:          nb,
       oc:          oc,
+      sloop:       sloop,
       purity:      pur
     }]);
   },

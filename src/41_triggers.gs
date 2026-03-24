@@ -63,7 +63,7 @@ function onEdit(e) {
   }
 
   // ── Recalcul des taux et flags ─────────────────────────────────────────
-  var recalcCols = [c.RECIPE, c.MACHINE, c.NB, c.OC, c.PUR];
+  var recalcCols = [c.RECIPE, c.MACHINE, c.NB, c.OC, c.PUR, c.SLOOP];
   if (recalcCols.indexOf(col) === -1) return;
 
   try {

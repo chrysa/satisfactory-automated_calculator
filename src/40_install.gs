@@ -42,10 +42,10 @@ function SAT_install() {
   var c = cfg.C;
   if (_prodSh && _prodSh.getLastRow() >= cfg.DAT_ROW) {
     var _nRows = _prodSh.getLastRow() - cfg.DAT_ROW + 1;
-    var _full  = _prodSh.getRange(cfg.DAT_ROW, 1, _nRows, c.MW).getValues();
+    var _full  = _prodSh.getRange(cfg.DAT_ROW, 1, _nRows, c.SLOOP).getValues();
     _backupProd = _full.map(function(row) {
       return [row[c.ETAGE-1], row[c.MACHINE-1], row[c.RECIPE-1],
-              row[c.NB-1], row[c.OC-1], row[c.PUR-1]];
+              row[c.NB-1], row[c.OC-1], row[c.PUR-1], row[c.SLOOP-1]];
     }).filter(function(row) {
       // Keep rows that have at least a recipe or a floor set
       return row[0] !== '' || row[2] !== '';
@@ -53,7 +53,7 @@ function SAT_install() {
   }
   if (_etagSh && _etagSh.getLastRow() >= 2) {
     var _eRows = _etagSh.getLastRow() - 1;
-    _backupEtag = _etagSh.getRange(2, 1, _eRows, 4).getValues();
+    _backupEtag = _etagSh.getRange(2, 1, _eRows, 6).getValues();
   }
   if (_objSh && _objSh.getLastRow() >= 2) {
     var _oRows = _objSh.getLastRow() - 1;
@@ -97,12 +97,13 @@ function SAT_install() {
       _newProdSh.getRange(r, c.NB,      1, 1).setValue(row[3]);
       _newProdSh.getRange(r, c.OC,      1, 1).setValue(row[4]);
       _newProdSh.getRange(r, c.PUR,     1, 1).setValue(row[5]);
+      if (row[6] !== undefined && row[6] !== '') _newProdSh.getRange(r, c.SLOOP, 1, 1).setValue(row[6]);
     });
     Logger.log('Restored ' + _backupProd.length + ' production rows');
   }
   var _newEtagSh = ss.getSheetByName(cfg.SHEETS.ETAG);
   if (_backupEtag && _backupEtag.length > 0 && _newEtagSh) {
-    _newEtagSh.getRange(2, 1, _backupEtag.length, 4).setValues(_backupEtag);
+    _newEtagSh.getRange(2, 1, _backupEtag.length, 6).setValues(_backupEtag);
     Logger.log('Restored ' + _backupEtag.length + ' floor rows');
   }
   var _newObjSh = ss.getSheetByName(cfg.SHEETS.OBJ);
@@ -533,10 +534,28 @@ function _installProduction() {
     .setNumberFormat('0.00')
     .setHorizontalAlignment('center');
 
+  // ── Machine (col B) — lecture seule, déduite de la recette
+  sh.getRange(cfg.DAT_ROW, c.MACHINE, ROWS, 1)
+    .setBackground('#ECEFF1')
+    .setFontColor('#546E7A')
+    .setFontStyle('italic');
+  sh.getRange(cfg.HDR_ROW, c.MACHINE)
+    .setNote('Déduite automatiquement de la Recette sélectionnée.\nNe pas modifier manuellement.');
+
   // ── Valeurs par défaut : OC = 100, Pureté = Normal, Somersloops = 0
   sh.getRange(cfg.DAT_ROW, c.OC,    ROWS, 1).setValue(100);
   sh.getRange(cfg.DAT_ROW, c.PUR,   ROWS, 1).setValue('Normal');
-  sh.getRange(cfg.DAT_ROW, c.SLOOP, ROWS, 1).setValue(0).setNumberFormat('0');
+  sh.getRange(cfg.DAT_ROW, c.SLOOP, ROWS, 1).setValue(0)
+    .setNumberFormat('0')
+    .setBackground('#FFF3E0')
+    .setFontColor('#BF360C')
+    .setHorizontalAlignment('center');
+  // Validation Somersloops : entier 0-4
+  var sloopRule = SpreadsheetApp.newDataValidation()
+    .requireNumberBetween(0, 4)
+    .setAllowInvalid(false)
+    .build();
+  sh.getRange(cfg.DAT_ROW, c.SLOOP, ROWS, 1).setDataValidation(sloopRule);
 
   // ── Formats numériques
   sh.getRange(cfg.DAT_ROW, c.NB, ROWS, 1).setNumberFormat('0');
@@ -576,19 +595,19 @@ function _installProduction() {
     .setNote('Consommation électrique totale (toutes machines de la ligne)\nFormule : MW_machine × Nb × (OC% / 100)^1,321');
 
   // ── Largeurs
-  sh.setColumnWidth(c.ETAGE,    130);
-  sh.setColumnWidth(c.MACHINE,  155);
-  sh.setColumnWidth(c.RECIPE,   220);
+  sh.setColumnWidth(c.ETAGE,    140);
+  sh.setColumnWidth(c.MACHINE,  200);
+  sh.setColumnWidth(c.RECIPE,   230);
   sh.setColumnWidth(c.OUT_RATE,  90);
   sh.setColumnWidth(c.IN_RATE,   90);
-  sh.setColumnWidth(c.NB,        65);
-  sh.setColumnWidth(c.OC,        85);
+  sh.setColumnWidth(c.NB,        90);
+  sh.setColumnWidth(c.OC,        90);
   sh.setColumnWidth(c.PUR,       90);
-  sh.setColumnWidth(c.FLAGS,    280);
+  sh.setColumnWidth(c.FLAGS,    300);
   sh.setColumnWidth(c.CAUSE,    200);
   sh.setColumnWidth(c.STD_RATE,  90);
   sh.setColumnWidth(c.MW,        80);
-  sh.setColumnWidth(c.SLOOP,    100);
+  sh.setColumnWidth(c.SLOOP,    110);
 
   sh.getRange(cfg.HDR_ROW, c.SLOOP)
     .setNote('Nb de Somersloops dans les machines (0-4).\nChaque loop double le taux de sortie (×2^N).');
@@ -713,10 +732,10 @@ function _installMachines() {
     sh.getRange(i + 2, 1, 1, r.length).setBackground(catCol[cat]);
   });
 
-  sh.setColumnWidth(1, 230).setColumnWidth(2, 130).setColumnWidth(3, 110)
+  sh.setColumnWidth(1, 280).setColumnWidth(2, 130).setColumnWidth(3, 110)
     .setColumnWidth(4, 110).setColumnWidth(5, 120)
     .setColumnWidth(6, 80) .setColumnWidth(7, 80).setColumnWidth(8, 80)
-    .setColumnWidth(9, 90);
+    .setColumnWidth(9, 100);
 
   SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L×H + Somersloops]');
 }
