@@ -1,0 +1,100 @@
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches: [main]          # → PROD
+  pull_request:
+    branches: [main]          # → STAGING (pour voir le rendu avant de merger)
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Cible de déploiement'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+
+jobs:
+  # ── Job STAGING : déclenché sur les PR ───────────────────────────────────
+  deploy-staging:
+    name: "🧪 Deploy → Staging"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Auth + config (staging)
+        run: |
+          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID_STAGING }}","rootDir":"src"}' > .clasp.json
+
+      - name: Validate files
+        run: |
+          python3 -m json.tool src/appsscript.json > /dev/null
+          COUNT=$(find src/ -name "*.gs" | wc -l)
+          [ "$COUNT" -ge 5 ] || exit 1
+
+      - name: clasp push → STAGING
+        run: clasp push --force
+
+      - name: Summary
+        run: |
+          VERSION=$(grep -m1 -oP "VERSION: '\K[^']+" src/00_core_config.gs)
+          echo "## 🧪 Déployé sur STAGING" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version SAT** | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **PR** | #${{ github.event.pull_request.number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Sheet staging** | [Ouvrir](https://script.google.com/d/${{ secrets.CLASP_SCRIPT_ID_STAGING }}/edit) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> Ouvre le GSheet staging et lance **S.A.T. → RESET complet** pour voir le rendu." >> $GITHUB_STEP_SUMMARY
+
+  # ── Job PROD : déclenché sur push main ───────────────────────────────────
+  deploy-production:
+    name: "🚀 Deploy → Production"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'production')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Auth + config (production)
+        run: |
+          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > .clasp.json
+
+      - name: Validate files
+        run: |
+          python3 -m json.tool src/appsscript.json > /dev/null
+          COUNT=$(find src/ -name "*.gs" | wc -l)
+          [ "$COUNT" -ge 5 ] || exit 1
+
+      - name: clasp push → PRODUCTION
+        run: clasp push --force
+
+      - name: Summary
+        run: |
+          VERSION=$(grep -m1 -oP "VERSION: '\K[^']+" src/00_core_config.gs)
+          echo "## ✅ Déployé sur PRODUCTION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version SAT** | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Fichiers** | $(find src/ -name '*.gs' | wc -l) .gs |" >> $GITHUB_STEP_SUMMARY

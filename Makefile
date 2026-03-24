@@ -107,10 +107,34 @@ verify: ## Verify workspace and files integrity
 	if [ $$FILE_COUNT -ge 5 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 5+)$(NC)"; exit 1; fi
 	@echo "$(GREEN)✅ Verification passed!$(NC)"
 
-push: bump-version verify ## Push code to Google Apps Script
-	@echo "$(BLUE)📤 Pushing code to Apps Script...$(NC)"
+push: bump-version verify ## Push code to Google Apps Script (production)
+	@echo "$(BLUE)📤 Pushing code to Apps Script [PROD]...$(NC)"
 	@$(CLASP_PATH) push --force
-	@echo "$(GREEN)✅ Code pushed!$(NC)"
+	@echo "$(GREEN)✅ Code pushed to PROD!$(NC)"
+
+push-staging: verify ## Push code to STAGING GSheet (sans bump version)
+	@if [ -z "$(SCRIPT_ID_STAGING)" ]; then \
+		echo "$(RED)✗ SCRIPT_ID_STAGING non défini dans .env$(NC)"; \
+		echo "$(YELLOW)  Étapes de setup :$(NC)"; \
+		echo "$(YELLOW)  1. Créer un GSheet vierge (sheet de test)$(NC)"; \
+		echo "$(YELLOW)  2. Extensions → Apps Script → ⚙ Paramètres → copier 'ID du script'$(NC)"; \
+		echo "$(YELLOW)  3. Ajouter dans .env : SCRIPT_ID_STAGING=<id-copié>$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)📤 Pushing code to Apps Script [STAGING id=$(SCRIPT_ID_STAGING)]...$(NC)"
+	@echo '{"scriptId":"$(SCRIPT_ID_STAGING)","rootDir":"src"}' > .clasp.staging.json
+	@CLASP_JSON=.clasp.staging.json $(CLASP_PATH) push --force 2>/dev/null || $(CLASP_PATH) push --force
+	@rm -f .clasp.staging.json
+	@echo "$(GREEN)✅ Staging prêt !$(NC)"
+	@echo "$(YELLOW)→ Ouvre le GSheet de staging et lance : S.A.T. → RESET complet$(NC)"
+
+open-staging: ## Ouvrir le Apps Script editor de STAGING dans le navigateur
+	@if [ -z "$(SCRIPT_ID_STAGING)" ]; then \
+		echo "$(RED)✗ SCRIPT_ID_STAGING non défini dans .env$(NC)"; exit 1; \
+	fi
+	@URL="https://script.google.com/d/$(SCRIPT_ID_STAGING)/edit"; \
+	xdg-open "$$URL" 2>/dev/null || open "$$URL" 2>/dev/null || \
+	echo "$(YELLOW)Ouvre manuellement : $$URL$(NC)"
 
 bump-version: ## Increment patch version in 00_core_config.gs before push
 	@CURRENT=$$(grep -m1 -oP "^ *VERSION: '\\K[^']+" src/00_core_config.gs); \
@@ -123,8 +147,13 @@ bump-version: ## Increment patch version in 00_core_config.gs before push
 	sed -i "s|VERSION: '$$CURRENT'|VERSION: '$$NEW_VER'|" src/00_core_config.gs; \
 	echo "$(GREEN)Version bumped: $$CURRENT -> $$NEW_VER$(NC)"
 
-open: ## Ouvrir le projet dans le navigateur (Apps Script + Sheet)
+open: ## Ouvrir le Apps Script editor PROD dans le navigateur
 	@$(CLASP_PATH) open
+
+open-sheet: ## Ouvrir directement le GSheet PROD dans le navigateur
+	@SHEET_ID=$$(python3 -c "import json,sys; d=json.load(open('.clasp.json')); print(d['scriptId'])" 2>/dev/null || echo "$(SCRIPT_ID)"); \
+	URL="https://docs.google.com/spreadsheets/d/$$SHEET_ID"; \
+	xdg-open "$$URL" 2>/dev/null || open "$$URL" 2>/dev/null || echo "$(YELLOW)$$URL$(NC)"
 
 login: ## S'authentifier avec Google
 	@$(CLASP_PATH) login
@@ -134,16 +163,21 @@ install: ## Run installation after push
 	@$(CLASP_PATH) run SAT_createDocumentationSheet --scriptId $(SCRIPT_ID) 2>/dev/null || echo "$(YELLOW)⚠ Documentation sheet may already exist$(NC)"
 	@echo "$(GREEN)✅ Installation complete!$(NC)"
 
-test: ## Test deployment on local GSheet
-	@echo "$(BLUE)🧪 Testing deployment...$(NC)"
-	@echo "$(YELLOW)Manual steps:$(NC)"
-	@echo "  1. Create blank GSheet"
-	@echo "  2. Tools → Editor Apps Script"
-	@echo "  3. Copy-paste all .gs files"
-	@echo "  4. Deploy (Ctrl+Shift+Enter)"
-	@echo "  5. Menu 🧰 → Données → 🧱 Installer structure"
-	@echo "  6. Verify Overview sheet created"
-	@echo "$(GREEN)✅ Test checklist ready!$(NC)"
+test: ## Lancer les tests Jest (logique pure — sans GSheet)
+	@if [ -f package.json ]; then \
+		echo "$(BLUE)🧪 Tests Jest...$(NC)"; \
+		npm test; \
+	else \
+		echo "$(YELLOW)⚠ package.json absent — lance : npm install$(NC)"; \
+	fi
+
+test-staging: push-staging ## Push vers staging + rappel d'ouverture du sheet de test
+	@if [ -n "$(SCRIPT_ID_STAGING)" ]; then \
+		URL="https://script.google.com/d/$(SCRIPT_ID_STAGING)/edit"; \
+		echo "$(GREEN)✅ Push staging terminé. Ouvre le GSheet staging :$(NC)"; \
+		echo "   $$URL"; \
+		xdg-open "$$URL" 2>/dev/null || open "$$URL" 2>/dev/null || true; \
+	fi
 
 # ============================================================================
 # 📦 BACKUP & SYNC COMMANDS

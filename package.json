@@ -1,0 +1,25 @@
+{
+  "name": "satisfactory-automated-calculator",
+  "version": "1.0.0",
+  "description": "Tests locaux pour le code GAS S.A.T (sans déploiement)",
+  "private": true,
+  "scripts": {
+    "test": "jest --testPathPattern='tests/'",
+    "test:watch": "jest --watch --testPathPattern='tests/'",
+    "lint:syntax": "node scripts/check-syntax.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "gas-mock-globals": "^2.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFilesAfterFramework": [],
+    "setupFiles": [
+      "./tests/setup.js"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}
