@@ -2,7 +2,7 @@
 .clasp.json
 .clasp.staging.json
 
-# Variables d'environnement
+# Environment variables
 .env
 
 # Node.js
@@ -14,9 +14,21 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Éditeurs
+# Editors
 .idea/
 *.swp
 *.swo
-vscode/
 .vscode/
+
+# Satisfactory save files (potentially large / personal data)
+*.sav
+*_dump.json
+*_rapport.txt
+*_production.csv
+
+# Diagnostic / exploration scripts (not deployed)
+scripts/explore-*.js
+scripts/debug-*.js
+
+# Backups
+backups/

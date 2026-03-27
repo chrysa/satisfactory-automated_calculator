@@ -25,9 +25,11 @@ const fs   = require('fs');
 const path = require('path');
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
-const [,, inputArg, outputArg] = process.argv;
+const args = process.argv.slice(2).filter(a => a !== '--dump');
+const dumpMode = process.argv.includes('--dump');
+const [inputArg, outputArg] = args;
 if (!inputArg) {
-  console.error('Usage: node scripts/parse-save.js <save.sav> [output.csv]');
+  console.error('Usage: node scripts/parse-save.js <save.sav> [output.csv] [--dump]');
   process.exit(1);
 }
 const inputPath  = path.resolve(inputArg);
@@ -305,6 +307,89 @@ const buildings = allObjects.filter(obj => {
 
 console.log(`Found ${buildings.length} production buildings.`);
 
+// ── Build priority switch + circuit maps ───────────────────────────────────
+// Structure:
+//   switchTagMap:     switchInstanceBase → mBuildingTag (user-set name)
+//   circuitToSwitch:  circuitID → switchInstanceBase  (only if circuit has exactly 1 switch)
+//   instanceToCircuit: machineInstanceBase → circuitID
+//
+// Approach: scan all FGPowerCircuit.mComponents. Each pathName is:
+//   "Persistent_Level:PersistentLevel.Build_XYZ_C_NNNN.PowerConnection"
+//   → instBase = "Build_XYZ_C_NNNN"  (strip everything before last '.')
+//   → classK   = "Build_XYZ_C"       (strip numeric _NNNN suffix)
+
+const allCircuits = allObjects.filter(o => o?.typePath?.includes('FGPowerCircuit'));
+
+// Build switchTagMap from switch objects
+const switchTagMap = new Map(); // switchInstanceBase → mBuildingTag
+for (const obj of allObjects) {
+  if (!obj?.typePath?.includes('PriorityPowerSwitch')) continue;
+  const instBase = obj.instanceName?.split('.').pop();
+  const tag = obj.properties?.mBuildingTag?.value ?? null;
+  if (instBase) switchTagMap.set(instBase, tag);
+}
+
+// Build instanceToCircuit and circuitToSwitch
+const instanceToCircuit = new Map(); // machineInstanceBase → circuitID
+const circuitSwitchCount = new Map(); // circuitID → list of switch instanceBases
+for (const circuit of allCircuits) {
+  const circuitID = circuit.properties?.mCircuitID?.value ?? null;
+  if (circuitID === null) continue;
+  const components = circuit.properties?.mComponents?.values ?? [];
+  for (const comp of components) {
+    const pn = comp?.pathName ?? comp?.value?.pathName ?? null;
+    if (!pn) continue;
+    const dotIdx = pn.lastIndexOf('.');
+    if (dotIdx < 0) continue;
+    const instBase = pn.slice(0, dotIdx).split('.').pop();
+    if (!instBase) continue;
+    const classK = instBase.replace(/_\d+$/, '');
+    if (classK === 'Build_PriorityPowerSwitch_C') {
+      // Record switch in this circuit
+      if (!circuitSwitchCount.has(circuitID)) circuitSwitchCount.set(circuitID, []);
+      circuitSwitchCount.get(circuitID).push(instBase);
+    } else {
+      // Machine or power pole — record instance → circuit
+      instanceToCircuit.set(instBase, circuitID);
+    }
+  }
+}
+
+// circuitToSwitch: only circuits with exactly 1 switch → unambiguous mapping
+const circuitToSwitch = new Map(); // circuitID → switchInstanceBase
+for (const [cid, switchList] of circuitSwitchCount) {
+  if (switchList.length === 1) circuitToSwitch.set(cid, switchList[0]);
+}
+
+console.log(`Power circuits: ${allCircuits.length} circuits, ${switchTagMap.size} switches, ${instanceToCircuit.size} machine→circuit mappings.`);
+
+
+// ── Mode --dump : JSON brut de chaque bâtiment avant regroupement ─────────────
+if (dumpMode) {
+  const dumpPath = inputPath.replace(/\.sav$/i, '_dump.json');
+  const dumpData = buildings.map(b => {
+    const key = classKey(b.typePath);
+    const props = {};
+    if (b.properties) {
+      for (const [k, v] of Object.entries(b.properties)) {
+        try { props[k] = JSON.parse(JSON.stringify(v)); } catch(e) { props[k] = String(v); }
+      }
+    }
+    return {
+      typePath: b.typePath,
+      classKey: key,
+      machine_mapped: MACHINE_MAP[key] || null,
+      z: b.transform && b.transform.translation ? b.transform.translation.z : null,
+      x: b.transform && b.transform.translation ? b.transform.translation.x : null,
+      y: b.transform && b.transform.translation ? b.transform.translation.y : null,
+      properties: props,
+    };
+  });
+  fs.writeFileSync(dumpPath, JSON.stringify(dumpData, null, 2), 'utf8');
+  console.log(`\n✅ Dump JSON : ${buildings.length} bâtiments → ${dumpPath}`);
+  process.exit(0);
+}
+
 if (buildings.length === 0) {
   console.warn('No production buildings found. Check that the save is from Satisfactory v1.1.');
   process.exit(0);
@@ -318,9 +403,9 @@ for (const b of buildings) {
   const machine = MACHINE_MAP[key] || key;
 
   // Clock speed: stored as float [0.01 .. 2.5] → percentage 1..250
-  const clockRaw  = propVal(b, 'mCurrentPotentialConversion') ??
-                    propVal(b, 'mPendingPotentialConversion')  ??
-                    1.0;
+  const clockRaw  = propVal(b, 'mCurrentPotential') ??
+                    propVal(b, 'mPendingPotential')  ??
+                    1;
   const oc        = Math.round(clockRaw * 100);
 
   // Recipe
@@ -347,33 +432,36 @@ for (const b of buildings) {
     purity = PURITY_MAP[pFull] ?? PURITY_MAP[pKey] ?? 'Normal';
   }
 
-  // Position Z → floor index
-  const z     = b.transform && b.transform.translation ? b.transform.translation.z : 0;
-  const floor = zToFloor(z);
+  // Position Z + étage via switch
+  const z = b.transform?.translation?.z ?? 0;
 
-  extracted.push({ machine, recipe: recipeName, oc, sloop, purity, floor, z });
+  // Get étage name from priority switch via circuit membership
+  const instanceBase = b.instanceName?.split('.').pop() ?? null;
+  const circuitID = instanceBase ? (instanceToCircuit.get(instanceBase) ?? null) : null;
+  const switchInst = circuitID === null ? null : (circuitToSwitch.get(circuitID) ?? null);
+  const etageName  = switchInst ? (switchTagMap.get(switchInst) ?? null) : null;
+
+  // Only include machines with a recipe (verify production)
+  if (!recipeName) continue;
+
+  extracted.push({ machine, recipe: recipeName, oc, sloop, purity, z, etageName });
 }
 
-// ── Group identical machines per floor ────────────────────────────────────────
-// Key: floor|machine|recipe|oc|purity|sloop
+// ── Group identical machines per ligne de production ─────────────────────────
+// Key: etageName|machine|recipe|oc|purity|sloop
 const groups = {};
 for (const e of extracted) {
-  const k = `${e.floor}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
-  if (!groups[k]) {
-    groups[k] = { ...e, nb: 0 };
-  }
-  groups[k].nb++;
+  const key = `${e.etageName ?? '_aucun'}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
+  if (!groups[key]) groups[key] = { ...e, nb: 0, zSum: 0 };
+  groups[key].nb++;
+  groups[key].zSum += e.z;
 }
+for (const g of Object.values(groups)) g.avgZ = g.zSum / g.nb;
 
-// ── Assign floor names ────────────────────────────────────────────────────────
-// Sort floors by average Z ascending, name them Étage 1, 2, …
-const floorLevels = [...new Set(Object.values(groups).map(g => g.floor))].sort((a, b) => a - b);
-const floorNames  = {};
-floorLevels.forEach((fl, i) => { floorNames[fl] = `Étage ${i + 1}`; });
-
-// ── Sort rows: by floor then machine ─────────────────────────────────────────
-const rows = Object.values(groups).sort((a, b) => {
-  if (a.floor !== b.floor) return a.floor - b.floor;
+// ── Sort rows: by étage name (alphabetical), then machine ────────────────────
+const allRows = Object.values(groups).sort((a, b) => {
+  const na = a.etageName ?? '', nb2 = b.etageName ?? '';
+  if (na !== nb2) return na.localeCompare(nb2, 'fr');
   return a.machine.localeCompare(b.machine, 'fr');
 });
 
@@ -381,8 +469,8 @@ const rows = Object.values(groups).sort((a, b) => {
 const HEADER = ['Étage', 'Machine', 'Recette', 'Nb', 'OC%', 'Pureté', 'Somersloops'];
 const csvLines = [
   csvRow(HEADER),
-  ...rows.map(r => csvRow([
-    floorNames[r.floor],
+  ...allRows.map(r => csvRow([
+    r.etageName ?? 'Sans circuit',
     r.machine,
     r.recipe,
     r.nb,
@@ -394,48 +482,47 @@ const csvLines = [
 
 fs.writeFileSync(outputPath, csvLines.join('\n'), 'utf8');
 
-console.log(`\n✅ Production CSV: ${rows.length} ligne(s) → ${outputPath}`);
+console.log(`\n✅ Production CSV: ${allRows.length} ligne(s) → ${outputPath}`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RAPPORT DE SAUVEGARDE — collectibles & artefacts
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Playtime from save header
-const playSeconds = (save.header && save.header.playDurationSeconds) || 0;
+const playSeconds = (save.header?.playDurationSeconds) || 0;
 const playHours   = Math.floor(playSeconds / 3600);
 const playMinutes = Math.floor((playSeconds % 3600) / 60);
 
-// Hard drives
-// Crash sites still in world (unlooted) contain 'CrashSiteDebris' in typePath
-// Hard drives already collected appear in inventories
-const crashSitesRemaining = countInWorld(allObjects, 'CrashSiteDebris');
+// Hard drives — 3 types of crash site debris objects
+const crashSitesRemaining = countInWorld(allObjects, 'BP_CrashSiteDebris')
+                           + countInWorld(allObjects, 'BP_DebrisActor_02')
+                           + countInWorld(allObjects, 'BP_DebrisActor_03');
 const hdCollected         = countInInventories(allObjects, 'Desc_HardDrive');
 const hdTotal             = crashSitesRemaining + hdCollected;
 const hdPct               = hdTotal > 0 ? Math.round((hdCollected / hdTotal) * 100) : 0;
 
-// Somersloops
-// Slotted: sum from extracted buildings
+// Somersloops (BP_WAT1 in-world, Desc_WAT1 in inventory)
 const sloopsSlotted = extracted.reduce((s, e) => s + e.sloop, 0);
-// Still in world (uncollected artefact entities)
-const sloopsWorld   = countInWorld(allObjects, 'BP_AlienArtifact');
-// In inventories / storage (not yet slotted)
-const sloopsInInv   = countInInventories(allObjects, 'Desc_AlienArtifact');
+const sloopsWorld   = countInWorld(allObjects, 'BP_WAT1');
+const sloopsInInv   = countInInventories(allObjects, 'Desc_WAT1');
 const sloopsTotal   = sloopsSlotted + sloopsWorld + sloopsInInv;
 
-// Mercer Spheres (small, medium, large — all share AlienRemnant path)
-const spheresWorld  = countInWorld(allObjects, 'BP_AlienRemnant');
-const spheresInInv  = countInInventories(allObjects, 'Desc_AlienRemnant');
+// Mercer Spheres (BP_WAT2 in-world, Desc_WAT2 in inventory)
+const spheresWorld  = countInWorld(allObjects, 'BP_WAT2');
+const spheresInInv  = countInInventories(allObjects, 'Desc_WAT2');
 const spheresTotal  = spheresWorld + spheresInInv;
 
-// Power Slugs — 3 tiers (Green ×1 shard / Yellow ×2 / Blue ×5)
-// Note: 'Desc_Crystal_C' does not match 'Desc_Crystal_mk2_C' (substring safe)
+// Power Slugs — 3 tiers (Green ×1 / Yellow ×2 / Blue ×5)
+// Raw slugs still in inventory (may be 0 if all processed to shards)
 const slugGreenWorld  = countInWorld(allObjects, 'BP_Crystal.BP_Crystal_C');
 const slugYellowWorld = countInWorld(allObjects, 'BP_Crystal_mk2');
 const slugBlueWorld   = countInWorld(allObjects, 'BP_Crystal_mk3');
-const slugGreenInv    = countInInventories(allObjects, 'Desc_Crystal_C');
+const slugGreenInv    = countInInventories(allObjects, 'Desc_Crystal.Desc_Crystal_C');
 const slugYellowInv   = countInInventories(allObjects, 'Desc_Crystal_mk2');
 const slugBlueInv     = countInInventories(allObjects, 'Desc_Crystal_mk3');
-const shardsAvailable = slugGreenInv * 1 + slugYellowInv * 2 + slugBlueInv * 5;
+// Shards already processed (Desc_CrystalShard) + those still as raw slugs
+const shardsReady     = countInInventories(allObjects, 'Desc_CrystalShard');
+const shardsAvailable = shardsReady + slugGreenInv * 1 + slugYellowInv * 2 + slugBlueInv * 5;
 
 // Format helpers
 const pad   = (n, w) => String(n).padStart(w, ' ');
@@ -469,7 +556,8 @@ const rapport = [
   line('Vertes  (×1 shard) :', `${slugGreenInv} collectées  +  ${slugGreenWorld} dans le monde`),
   line('Jaunes  (×2 shards) :', `${slugYellowInv} collectées  +  ${slugYellowWorld} dans le monde`),
   line('Bleues  (×5 shards) :', `${slugBlueInv} collectées  +  ${slugBlueWorld} dans le monde`),
-  line('Shards disponibles :', String(shardsAvailable)),
+  line('Shards transformés :', String(shardsReady)),
+  line('Shards disponibles (total) :', String(shardsAvailable)),
   '',
   '══════════════════════════════════════════════════════',
 ].join('\n');
@@ -478,9 +566,12 @@ fs.writeFileSync(rapportPath, rapport, 'utf8');
 
 console.log('\n' + rapport);
 console.log(`\n✅ Rapport → ${rapportPath}`);
-console.log(`\nFloor mapping (Z → name):`);
-floorLevels.forEach((fl, i) => {
-  console.log(`  ${floorNames[fl]}  (Z ≈ ${fl * 4} m)`);
-});
-console.log('\nNext step: in Google Sheets → S.A.T. → Production,');
-console.log('paste the CSV content or use File → Import → Replace sheet.');
+
+// List unique étages found
+const etageNames = [...new Set(allRows.map(r => r.etageName ?? 'Sans circuit'))].sort((a, b) => a.localeCompare(b, 'fr'));
+console.log(`\nLignes de production détectées : ${etageNames.length}`);
+for (const name of etageNames) {
+  const count = allRows.filter(r => (r.etageName ?? 'Sans circuit') === name).reduce((s, r) => s + r.nb, 0);
+  console.log(`  ${name}  (${count} machines)`);
+}
+console.log('\nProchaine étape : dans Google Sheets → S.A.T. → importer le CSV.');

@@ -1,20 +1,27 @@
 /* ============================================================
- * 00_core_config.gs — Configuration application SAT v3.4
- * Contient uniquement la config de l'outil (feuilles, colonnes,
- * pureté, version). Les données du jeu sont dans 01_data_vX_Y.gs.
+ * 00_core_config.gs — S.A.T. application configuration
  *
- * Pour mettre à jour vers une nouvelle version de Satisfactory :
- *   1. Créer src/01_data_vX_Y.gs avec SAT.DATA['X.Y'] = {...}
- *   2. Changer GAME_VERSION ci-dessous
+ * Contains only tool configuration (sheets, columns, purity,
+ * version). Game data lives in versioned files: 01_data_vX_Y.gs
+ *
+ * ADDING SUPPORT FOR A NEW SATISFACTORY VERSION:
+ *   1. Copy src/01_data_TEMPLATE.gs → src/01_data_v2_0.gs
+ *   2. Populate SAT.DATA['2.0'] with machines/resources/recipes
+ *   3. Set GAME_VERSION: '2.0' below
+ *   4. Deploy: make push
+ *
+ * Each game version is isolated in its own 01_data_vX_Y.gs file.
+ * Multiple versions can coexist — only GAME_VERSION is active.
  * ============================================================ */
 
 var SAT = this.SAT || (this.SAT = {});
 
 SAT.CFG = {
-  VERSION: '3.5.5',
+  VERSION: '3.5.6',
 
-  // ── Version du jeu Satisfactory — change ici pour une MàJ ─
-  // Doit correspondre à une clé dans SAT.DATA (fichier 01_data_vX_Y.gs)
+  // ── Active game version — must match a key in SAT.DATA ───
+  // To support a new Satisfactory release: copy 01_data_TEMPLATE.gs,
+  // fill in the data, then change this value.
   GAME_VERSION: '1.1',
 
   // ── Noms des onglets (ordre logique) ──────────────────────

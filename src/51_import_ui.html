@@ -330,19 +330,66 @@ document.getElementById('fileInput').addEventListener('change', async (e) => {
 
 function extractProduction(allObjects) {
   const KEYS = new Set(Object.keys(MACHINE_MAP));
-  const buildings = allObjects.filter(o => o && o.typePath && KEYS.has(classKey(o.typePath)));
 
-  const extracted = buildings.map(b => {
-    const key     = classKey(b.typePath);
+  // ── Build priority switch + circuit maps ────────────────────────────────
+  // switchTagMap:    switchInstanceBase → mBuildingTag (user-set name)
+  // circuitToSwitch: circuitID → switchInstanceBase (only if circuit has exactly 1 switch)
+  // instanceToCircuit: machineInstanceBase → circuitID
+
+  const allCircuits = allObjects.filter(o => o?.typePath?.includes('FGPowerCircuit'));
+
+  const switchTagMap = new Map(); // switchInstanceBase → mBuildingTag
+  for (const obj of allObjects) {
+    if (!obj?.typePath?.includes('PriorityPowerSwitch')) continue;
+    const instBase = obj.instanceName?.split('.').pop();
+    const tag = obj.properties?.mBuildingTag?.value ?? null;
+    if (instBase) switchTagMap.set(instBase, tag);
+  }
+
+  const instanceToCircuit = new Map();
+  const circuitSwitchCount = new Map();
+  for (const circuit of allCircuits) {
+    const cid = circuit.properties?.mCircuitID?.value ?? null;
+    if (cid === null) continue;
+    const components = circuit.properties?.mComponents?.values ?? [];
+    for (const comp of components) {
+      const pn = comp?.pathName ?? comp?.value?.pathName ?? null;
+      if (!pn) continue;
+      const dotIdx = pn.lastIndexOf('.');
+      if (dotIdx < 0) continue;
+      const instBase = pn.slice(0, dotIdx).split('.').pop();
+      if (!instBase) continue;
+      const classK = instBase.replace(/_\d+$/, '');
+      if (classK === 'Build_PriorityPowerSwitch_C') {
+        if (!circuitSwitchCount.has(cid)) circuitSwitchCount.set(cid, []);
+        circuitSwitchCount.get(cid).push(instBase);
+      } else {
+        instanceToCircuit.set(instBase, cid);
+      }
+    }
+  }
+
+  const circuitToSwitch = new Map();
+  for (const [cid, switchList] of circuitSwitchCount) {
+    if (switchList.length === 1) circuitToSwitch.set(cid, switchList[0]);
+  }
+
+  // ── Extract data per building ────────────────────────────────────────────
+  const buildings = allObjects.filter(o => o && o.typePath && KEYS.has(classKey(o.typePath)));
+  const extracted = [];
+
+  for (const b of buildings) {
+    const key = classKey(b.typePath);
     const machine = MACHINE_MAP[key] || key;
-    const clockRaw = propVal(b, 'mCurrentPotentialConversion')
-                  ?? propVal(b, 'mPendingPotentialConversion')
-                  ?? 1.0;
+
+    const clockRaw = propVal(b, 'mCurrentPotential')
+                  ?? propVal(b, 'mPendingPotential')
+                  ?? 1;
     const oc = Math.round(Number(clockRaw) * 100);
 
     // Machines éteintes (switch OFF en jeu) → exclues de l'import
     const isProducing = propVal(b, 'mIsProducing');
-    if (isProducing === false) return null;
+    if (isProducing === false) continue;
 
     const recipeProp = prop(b, 'mCurrentRecipe');
     let recipe = '';
@@ -350,6 +397,8 @@ function extractProduction(allObjects) {
       const rKey = classKey(recipeProp.value.pathName);
       recipe = RECIPE_MAP[rKey] || rKey;
     }
+    // Only include machines with a recipe (verify production)
+    if (!recipe) continue;
 
     const sloop = Number(
       propVal(b, 'mNumSomersloopsSlotted') ?? propVal(b, 'mNumSlotsUsedForced') ?? 0
@@ -363,43 +412,33 @@ function extractProduction(allObjects) {
       purity = PURITY_MAP[pFull] ?? PURITY_MAP[pKey] ?? 'Normal';
     }
 
-    const z     = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
-    return { machine, recipe, oc, sloop, purity, z };
-  }).filter(e => e !== null);
+    const z = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
 
-  // ── Cluster z-values en étages par proximité ──────────────────────────────
-  // Les machines au même étage peuvent avoir des z légèrement différentes.
-  // On regroupe les z proches (< 300 cm d'écart entre groupes consécutifs).
-  const THRESHOLD = 300; // cm (~3m)
-  const zValues = [...new Set(extracted.map(e => e.z))].sort((a, b) => a - b);
-  const zToFloor = {};
-  let floorIdx = 0;
-  if (zValues.length > 0) {
-    zToFloor[zValues[0]] = 0;
-    for (let i = 1; i < zValues.length; i++) {
-      if (zValues[i] - zValues[i - 1] > THRESHOLD) floorIdx++;
-      zToFloor[zValues[i]] = floorIdx;
-    }
+    // Étage name from priority switch via circuit membership
+    const instanceBase = b.instanceName?.split('.').pop() ?? null;
+    const cid = instanceBase ? (instanceToCircuit.get(instanceBase) ?? null) : null;
+    const switchInst = cid === null ? null : (circuitToSwitch.get(cid) ?? null);
+    const etageName = switchInst ? (switchTagMap.get(switchInst) ?? null) : null;
+
+    extracted.push({ machine, recipe, oc, sloop, purity, z, etageName });
   }
 
-  // Group identical machines per floor-cluster
+  // ── Group identical machines per ligne de production ─────────────────────
   const groups = {};
   for (const e of extracted) {
-    const floor = zToFloor[e.z] ?? 0;
-    const k = `${floor}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
-    if (!groups[k]) groups[k] = { ...e, floor, nb: 0 };
+    const k = `${e.etageName ?? '_nc'}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
+    if (!groups[k]) groups[k] = { ...e, nb: 0 };
     groups[k].nb++;
   }
 
-  // Assign floor names sorted by altitude
-  const floors = [...new Set(Object.values(groups).map(g => g.floor))].sort((a, b) => a - b);
-  const floorNames = {};
-  floors.forEach((f, i) => { floorNames[f] = `Étage ${i + 1}`; });
-
   return Object.values(groups)
-    .sort((a, b) => a.floor !== b.floor ? a.floor - b.floor : a.machine.localeCompare(b.machine, 'fr'))
+    .sort((a, b) => {
+      const na = a.etageName ?? '', nb = b.etageName ?? '';
+      if (na !== nb) return na.localeCompare(nb, 'fr');
+      return a.machine.localeCompare(b.machine, 'fr');
+    })
     .map(r => ({
-      etage:   floorNames[r.floor],
+      etage:   r.etageName ?? 'Sans circuit',
       machine: r.machine,
       recipe:  r.recipe,
       nb:      r.nb,
@@ -442,32 +481,39 @@ function extractCollectibles(allObjects, save) {
   const hours        = Math.floor(playSeconds / 3600);
   const minutes      = Math.floor((playSeconds % 3600) / 60);
 
-  const crashRemain  = countInWorld(allObjects, 'CrashSiteDebris');
+  // Hard drives — 3 types of crash site debris
+  const crashRemain  = countInWorld(allObjects, 'BP_CrashSiteDebris')
+                     + countInWorld(allObjects, 'BP_DebrisActor_02')
+                     + countInWorld(allObjects, 'BP_DebrisActor_03');
   const hdCollected  = countInInventories(allObjects, 'Desc_HardDrive');
   const hdTotal      = crashRemain + hdCollected;
   const hdPct        = hdTotal > 0 ? Math.round((hdCollected / hdTotal) * 100) : 0;
 
+  // Somersloops — BP_WAT1 in world, Desc_WAT1 in inventory
   const sloopsSlotted = parsedRows ? parsedRows.reduce((s, r) => s + (r.sloop || 0), 0) : 0;
-  const sloopsWorld   = countInWorld(allObjects, 'BP_AlienArtifact');
-  const sloopsInv     = countInInventories(allObjects, 'Desc_AlienArtifact');
+  const sloopsWorld   = countInWorld(allObjects, 'BP_WAT1');
+  const sloopsInv     = countInInventories(allObjects, 'Desc_WAT1');
 
-  const spheresWorld  = countInWorld(allObjects, 'BP_AlienRemnant');
-  const spheresInv    = countInInventories(allObjects, 'Desc_AlienRemnant');
+  // Mercer Spheres — BP_WAT2 in world, Desc_WAT2 in inventory
+  const spheresWorld  = countInWorld(allObjects, 'BP_WAT2');
+  const spheresInv    = countInInventories(allObjects, 'Desc_WAT2');
 
+  // Power Slugs — raw slugs + already-processed shards (Desc_CrystalShard)
   const slugGW  = countInWorld(allObjects, 'BP_Crystal.BP_Crystal_C');
   const slugYW  = countInWorld(allObjects, 'BP_Crystal_mk2');
   const slugBW  = countInWorld(allObjects, 'BP_Crystal_mk3');
-  const slugGI  = countInInventories(allObjects, 'Desc_Crystal_C');
+  const slugGI  = countInInventories(allObjects, 'Desc_Crystal.Desc_Crystal_C');
   const slugYI  = countInInventories(allObjects, 'Desc_Crystal_mk2');
   const slugBI  = countInInventories(allObjects, 'Desc_Crystal_mk3');
-  const shards  = slugGI * 1 + slugYI * 2 + slugBI * 5;
+  const shardsReady = countInInventories(allObjects, 'Desc_CrystalShard');
+  const shards  = shardsReady + slugGI * 1 + slugYI * 2 + slugBI * 5;
 
   return {
     playtime: `${hours}h ${String(minutes).padStart(2,'0')}min`,
     hd: { collected: hdCollected, total: hdTotal, pct: hdPct, sites: crashRemain },
     sloops: { slotted: sloopsSlotted, inv: sloopsInv, world: sloopsWorld },
     spheres: { inv: spheresInv, world: spheresWorld },
-    slugs: { gW: slugGW, gI: slugGI, yW: slugYW, yI: slugYI, bW: slugBW, bI: slugBI, shards },
+    slugs: { gW: slugGW, gI: slugGI, yW: slugYW, yI: slugYI, bW: slugBW, bI: slugBI, shardsReady, shards },
   };
 }
 
@@ -507,7 +553,7 @@ function renderRapport(c) {
     🌀 Sphères de Mercer : <b>${spheresTotal}</b>
       (${c.spheres.inv} inv · ${c.spheres.world} monde)<br>
     ⚡ Limaces → shards dispo : <b>${c.slugs.shards}</b>
-      (🟢 ${c.slugs.gI}+${c.slugs.gW} · 🟡 ${c.slugs.yI}+${c.slugs.yW} · 🔵 ${c.slugs.bI}+${c.slugs.bW})
+      (transformés : ${c.slugs.shardsReady} · bruts : 🟢${c.slugs.gI}+${c.slugs.gW} 🟡${c.slugs.yI}+${c.slugs.yW} 🔵${c.slugs.bI}+${c.slugs.bW})
   `;
 }
 
@@ -530,8 +576,10 @@ window.doImport = function(append) {
       if (res && res.error) {
         setStatus('❌ ' + res.error, 'err');
       } else {
-        setStatus(`✅ ${res.count} ligne(s) importée(s) dans Production.`, 'ok');
+        setStatus(`✅ ${res.count} ligne(s) importée(s). Ouverture de l'assistant…`, 'ok');
         elActions.style.display = 'none';
+        // Ouvrir l'assistant après import réussi
+        google.script.run.SAT_openAssistant();
       }
     })
     .withFailureHandler(function(err) {

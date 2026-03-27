@@ -50,14 +50,8 @@ function onOpen(e) {
   // 3. Recalcul automatique (met à jour le Dashboard y compris la version en B2)
   try { SAT_recalcAll(); } catch(e) {}
 
-  // 4. Reminder si le trigger installable n'a pas encore été activé
-  try {
-    var triggerProp = PropertiesService.getDocumentProperties().getProperty('SAT_TRIGGER_SETUP');
-    if (!triggerProp) {
-      SpreadsheetApp.getActiveSpreadsheet()
-        .toast('💡 Active l\'assistant au démarrage : menu S.A.T. → ⚙️ Activer l\'assistant au démarrage', 'S.A.T.', 8);
-    }
-  } catch(eT) {}
+  // 4. Ouvrir l'assistant par défaut
+  try { SAT_openAssistant(); } catch(e) {}
 }
 
 // ─── Construction du menu ─────────────────────────────────────────────────

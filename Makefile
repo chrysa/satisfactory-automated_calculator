@@ -1,8 +1,9 @@
 .PHONY: help deploy test parse-save backup sync clean install push pull verify setup-env open login bump-version
 
-# 🧰 S.A.T 2026 - Makefile for Deployment Management
+# 🧰 S.A.T. — Makefile
 # Usage: make [target]
-# Configuration: Edit .env file to set variables
+# Versioning is handled automatically by GitVersion on CI.
+# Do NOT manually edit VERSION in 00_core_config.gs.
 
 # Load environment variables from .env file
 ifneq (,$(wildcard .env))
@@ -107,10 +108,11 @@ verify: ## Verify workspace and files integrity
 	if [ $$FILE_COUNT -ge 5 ]; then echo "$(GREEN)✓ Found $$FILE_COUNT .gs files in src/$(NC)"; else echo "$(RED)✗ Only $$FILE_COUNT .gs files in src/ (expected 5+)$(NC)"; exit 1; fi
 	@echo "$(GREEN)✅ Verification passed!$(NC)"
 
-push: bump-version verify ## Push code to Google Apps Script (production)
-	@echo "$(BLUE)📤 Pushing code to Apps Script [PROD]...$(NC)"
+push: verify ## Push code to Google Apps Script (version injected by CI; local push skips GitVersion)
+	@echo "$(BLUE)📤 Pushing code to Apps Script...$(NC)"
 	@$(CLASP_PATH) push --force
-	@echo "$(GREEN)✅ Code pushed to PROD!$(NC)"
+	@echo "$(GREEN)✅ Code pushed!$(NC)"
+	@echo "$(YELLOW)Note: on CI, GitVersion automatically sets the version. Locally the current VERSION value is used.$(NC)"
 
 push-staging: verify ## Push code to STAGING GSheet (sans bump version)
 	@if [ -z "$(SCRIPT_ID_STAGING)" ]; then \
@@ -136,26 +138,20 @@ open-staging: ## Ouvrir le Apps Script editor de STAGING dans le navigateur
 	xdg-open "$$URL" 2>/dev/null || open "$$URL" 2>/dev/null || \
 	echo "$(YELLOW)Ouvre manuellement : $$URL$(NC)"
 
-bump-version: ## Increment patch version in 00_core_config.gs before push
-	@CURRENT=$$(grep -m1 -oP "^ *VERSION: '\\K[^']+" src/00_core_config.gs); \
-	MAJOR=$$(echo $$CURRENT | cut -d'.' -f1); \
-	MINOR=$$(echo $$CURRENT | cut -d'.' -f2); \
-	PATCH=$$(echo $$CURRENT | cut -d'.' -f3); \
-	if [ -z "$$PATCH" ]; then PATCH=0; fi; \
-	NEW_PATCH=$$((PATCH + 1)); \
-	NEW_VER="$$MAJOR.$$MINOR.$$NEW_PATCH"; \
-	sed -i "s|VERSION: '$$CURRENT'|VERSION: '$$NEW_VER'|" src/00_core_config.gs; \
-	echo "$(GREEN)Version bumped: $$CURRENT -> $$NEW_VER$(NC)"
+bump-version: ## [DEPRECATED] Version is now computed automatically by GitVersion on CI
+	@echo "$(YELLOW)⚠ bump-version is no longer needed.$(NC)"
+	@echo "$(YELLOW)  GitVersion computes the version from git history on every CI run.$(NC)"
+	@echo "$(YELLOW)  Use Conventional Commits: feat: / fix: / chore: — see GitVersion.yml$(NC)"
 
-open: ## Ouvrir le Apps Script editor PROD dans le navigateur
+open: ## Open the Apps Script editor in the browser
 	@$(CLASP_PATH) open
 
-open-sheet: ## Ouvrir directement le GSheet PROD dans le navigateur
+open-sheet: ## Open the Google Sheet directly in the browser
 	@SHEET_ID=$$(python3 -c "import json,sys; d=json.load(open('.clasp.json')); print(d['scriptId'])" 2>/dev/null || echo "$(SCRIPT_ID)"); \
 	URL="https://docs.google.com/spreadsheets/d/$$SHEET_ID"; \
 	xdg-open "$$URL" 2>/dev/null || open "$$URL" 2>/dev/null || echo "$(YELLOW)$$URL$(NC)"
 
-login: ## S'authentifier avec Google
+login: ## Authenticate with Google
 	@$(CLASP_PATH) login
 
 install: ## Run installation after push
@@ -163,18 +159,18 @@ install: ## Run installation after push
 	@$(CLASP_PATH) run SAT_createDocumentationSheet --scriptId $(SCRIPT_ID) 2>/dev/null || echo "$(YELLOW)⚠ Documentation sheet may already exist$(NC)"
 	@echo "$(GREEN)✅ Installation complete!$(NC)"
 
-test: ## Lancer les tests Jest (logique pure — sans GSheet)
+test: ## Run Jest tests (pure logic — no GSheet needed)
 	@if [ -f package.json ]; then \
-		echo "$(BLUE)🧪 Tests Jest...$(NC)"; \
+		echo "$(BLUE)🧪 Jest tests...$(NC)"; \
 		npm test; \
 	else \
-		echo "$(YELLOW)⚠ package.json absent — lance : npm install$(NC)"; \
+		echo "$(YELLOW)⚠ package.json missing — run: npm install$(NC)"; \
 	fi
 
-parse-save: ## Convertir un fichier de sauvegarde .sav en CSV Production
+parse-save: ## Parse a .sav file → production CSV + collectibles report
 	@if [ -z "$(SAV)" ]; then \
-		echo "$(RED)✗ Fichier .sav non spécifié$(NC)"; \
-		echo "$(YELLOW)  Usage : make parse-save SAV=<chemin/vers/save.sav> [OUT=output.csv]$(NC)"; \
+		echo "$(RED)✗ .sav file not specified$(NC)"; \
+		echo "$(YELLOW)  Usage: make parse-save SAV=<path/to/save.sav> [OUT=output.csv]$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(BLUE)📦 Parsing save file: $(SAV)$(NC)"

@@ -1,10 +1,291 @@
-# Guide GitHub Copilot — S.A.T. v3.5.1
+# S.A.T. — Developer Guide (GitHub Copilot / Contributors)
 
-**Mis à jour** : 27 mars 2026 | **Version app** : 3.5.1 | **Jeu** : Satisfactory 1.1  
+**Updated**: March 2026 | **Game**: Satisfactory 1.1
 
 ---
 
-## 📂 Organisation des fichiers (9 modules)
+## 📂 File Layout (11 modules)
+
+| File | Namespace | Role |
+|------|-----------|------|
+| `00_core_config.gs` | `SAT.CFG`, `SAT.U`, `SAT.S`, `SAT.Log` | App config, utilities, game data loader |
+| `01_data_v1_1.gs` | `SAT.DATA['1.1']` | Satisfactory 1.1 data: 18 machines, 95 resources, 67 recipes |
+| `01_data_TEMPLATE.gs` | — | Template for new game versions — copy this |
+| `10_engine.gs` | `SAT.Engine` | Rate calculation, flag detection, recipe index |
+| `11_solver.gs` | `SAT.Solver` | Objectives → production plan solver |
+| `20_ui_charts.gs` | — | Dashboard charts |
+| `30_recalc.gs` | — | `SAT_recalcAll()` — full recalculation entry point |
+| `40_install.gs` | — | `SAT_install()` — sheet creation, validations, soft update |
+| `41_triggers.gs` | — | `onOpen()`, `onEdit()` |
+| `42_menu.gs` | — | `SAT_buildMenu()`, opens assistant on load |
+| `50_assistant.gs` | `SAT.Assistant` | Factory analysis, bottlenecks, actionable suggestions |
+| `51_import.gs` | — | Server-side: receive parsed rows → Production sheet |
+| `51_import_ui.html` | — | Browser-side .sav parsing sidebar (esm.sh CDN) |
+
+**Load order**: alphabetical → numeric prefixes guarantee correct dependency order.
+
+---
+
+## Part 1 — Code Patterns
+
+### Module Template
+
+```javascript
+var SAT = this.SAT || (this.SAT = {});
+
+// ============================================================
+// SAT.ModuleName — Short description
+// ============================================================
+
+SAT.ModuleName = {
+
+  publicMethod: function(param) {
+    var cfg = SAT.CFG;
+    try {
+      // implementation
+      SAT.Log.ok('publicMethod OK');
+      return result;
+    } catch (e) {
+      SAT.Log.error('publicMethod: ' + e.message);
+      throw e;
+    }
+  },
+
+  _privateHelper: function() { /* ... */ }
+};
+
+Logger.log('✅ XX_module.gs loaded');
+```
+
+### Configuration Access
+
+```javascript
+var cfg = SAT.CFG;
+
+// Sheet names
+cfg.SHEETS.PROD   // '🏭 Production'
+cfg.SHEETS.DASH   // '📊 Dashboard'
+cfg.SHEETS.OBJ    // '🎯 Objectives'
+cfg.SHEETS.REC    // '📖 Recipes'
+cfg.SHEETS.RES    // '💎 Resources'
+cfg.SHEETS.MACH   // '⚙️ Machines'
+cfg.SHEETS.ETAG   // '🏗️ Floors'
+
+// Production column indices (1-based)
+cfg.C.ETAGE    // 1 — A  Floor
+cfg.C.MACHINE  // 2 — B  Machine
+cfg.C.RECIPE   // 3 — C  Recipe
+cfg.C.OUT_RATE // 4 — D  Qt/min OUT (auto)
+cfg.C.IN_RATE  // 5 — E  Qt/min IN  (auto)
+cfg.C.NB       // 6 — F  Count
+cfg.C.OC       // 7 — G  Overclock %
+cfg.C.PUR      // 8 — H  Purity
+cfg.C.FLAGS    // 9 — I  Auto flags
+cfg.C.CAUSE    // 10 — J Error cause
+cfg.C.STD_RATE // 11 — K Qt/min STD (base rate OC=100%)
+cfg.C.MW       // 12 — L ⚡ Total MW
+cfg.C.SLOOP    // 13 — M Somersloops (0–4)
+
+// Purity multipliers
+cfg.PURITY['Impur']   // 0.5
+cfg.PURITY['Normal']  // 1.0
+cfg.PURITY['Pur']     // 2.0
+
+// Versions
+cfg.VERSION       // app version (computed by GitVersion on CI)
+cfg.GAME_VERSION  // '1.1'
+```
+
+### Game Data Access
+
+```javascript
+// Load game data (auto on first getRecipeIndex())
+SAT.loadGameData();
+
+var machines  = SAT.CFG.MACHINES;
+var resources = SAT.CFG.RESOURCES;
+var recipes   = SAT.CFG.RECIPES;
+
+// Recipe index (auto-built)
+var idx = SAT.getRecipeIndex();
+var rec = idx['Iron Ingot'];
+// rec = { name, machine, inRes1, inRate1, inRes2, inRate2,
+//         outRes1, outRate1, outRes2, outRate2, tier }
+```
+
+### Sheet Access
+
+```javascript
+var sh = SAT.S.get('🏭 Production');    // null if missing
+var sh = SAT.S.ensure('🏭 Production'); // create if missing
+
+// Read a range
+var data = sh.getRange(cfg.DAT_ROW, 1, sh.getLastRow() - 1, cfg.C.CAUSE)
+             .getValues();
+// data[i][cfg.C.RECIPE - 1] → recipe for row i
+```
+
+### Logging
+
+```javascript
+SAT.Log.info('Informational message');
+SAT.Log.ok('Operation successful');
+SAT.Log.warn('Warning');
+SAT.Log.error('Critical error');
+```
+
+### Standard Error Handling Pattern
+
+```javascript
+function SAT_myAction() {
+  try {
+    SAT.loadGameData();
+    var cfg = SAT.CFG;
+    // ... code
+    SAT.Log.ok('myAction done');
+  } catch(e) {
+    SAT.Log.error('myAction: ' + e.message);
+    SpreadsheetApp.getUi().alert('Error: ' + e.message);
+  }
+}
+```
+
+---
+
+## Part 2 — Game Version Isolation
+
+Each Satisfactory version is a separate file. The active version is selected by a single config key.
+
+### Adding a New Satisfactory Version
+
+```bash
+# 1. Copy the template
+cp src/01_data_TEMPLATE.gs src/01_data_v2_0.gs
+```
+
+```javascript
+// 2. In src/01_data_v2_0.gs — fill the data arrays
+var SAT = this.SAT || (this.SAT = {});
+SAT.DATA = SAT.DATA || {};
+SAT.DATA['2.0'] = {
+  MACHINES:  [
+    // [Name, MW, In-belts, Out-belts, Category, W(m), L(m), H(m), Sloop-slots]
+    ['Smelter', 4, 1, 1, 'Production', 5, 9, 9, 1],
+  ],
+  RESOURCES: [
+    // [Name, Category]
+    ['Iron Ore', 'Ore'],
+  ],
+  RECIPES: [
+    // [Name, Machine, inRes1, inRate1, inRes2, inRate2,
+    //                 outRes1, outRate1, outRes2, outRate2, Tier]
+    ['Iron Ingot', 'Smelter', 'Iron Ore', 30, '', 0, 'Iron Ingot', 30, '', 0, 'T0'],
+  ],
+};
+Logger.log('✅ 01_data_v2_0.gs loaded');
+```
+
+```javascript
+// 3. In src/00_core_config.gs — activate the new version
+GAME_VERSION: '2.0',
+```
+
+```bash
+# 4. Deploy
+make push
+```
+
+Multiple version files can coexist in `src/`. Only `GAME_VERSION` determines which is active.
+
+---
+
+## Part 3 — Production Sheet
+
+Column structure (data rows start at row 2):
+
+| Col | Letter | Field | Input |
+|-----|--------|-------|-------|
+| 1 | A | Floor | Manual (dropdown ← 🏗️ Floors) |
+| 2 | B | Machine | Manual (dropdown ← ⚙️ Machines) |
+| 3 | C | **Recipe** | Manual (dropdown ← 📖 Recipes) |
+| 4 | D | Qt/min OUT | **Auto** (recipe × OC × purity) |
+| 5 | E | Qt/min IN | **Auto** (recipe × OC) |
+| 6 | F | Count | Manual |
+| 7 | G | OC% | Manual (default 100) |
+| 8 | H | Purity | Manual (Impure / Normal / Pure) |
+| 9 | I | Flags | **Auto** (engine) |
+| 10 | J | Cause | **Auto** (engine) |
+| 11 | K | Qt/min STD | **Auto** |
+| 12 | L | ⚡ MW | **Auto** |
+| 13 | M | Somersloops | **Auto** / Manual |
+
+> D, E, I, J, K, L are never manually entered — they are overwritten on every recalculation.
+
+---
+
+## Part 4 — Effective Copilot Prompts
+
+### Create a new module
+```
+Following the patterns in COPILOT_GUIDE.md for S.A.T.:
+In 10_engine.gs, add the method SAT.Engine.detectBeltLimits()
+that iterates all rows and returns those where OUT rate exceeds 780/min.
+Use SAT.CFG.C and SAT.Log.
+```
+
+### Fix a crash
+```
+This function crashes with SAT.CFG.RECIPES undefined.
+Add SAT.loadGameData() at the top of the function.
+Reference pattern in COPILOT_GUIDE.md section "Game Data Access".
+```
+
+### Add a recipe
+```
+Add to src/01_data_v1_1.gs, inside SAT.DATA['1.1'].RECIPES:
+  ['Motor', 'Assembler', 'Rotor', 3.75, 'Stator', 3.75, 'Motor', 1.25, '', 0, 'T4']
+Follow the existing format exactly.
+```
+
+---
+
+## ✅ Best Practices
+
+| Do | Don't |
+|----|-------|
+| Reference `COPILOT_GUIDE.md` in prompts | Vague prompts without context |
+| `SAT.S.get()` / `SAT.S.ensure()` for sheets | Hardcode sheet names as strings |
+| `SAT.CFG.SHEETS.PROD` for sheet name constants | Hardcode `'Production'` |
+| `SAT.Log.*` for all logging | Raw `Logger.log()` |
+| `SAT.loadGameData()` before using RECIPES | Access `SAT.CFG.RECIPES` without loading |
+| Official game names from wiki.gg | Translated or approximate names |
+
+---
+
+## 🔧 Common Diagnostics
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| `SAT.CFG.RECIPES is null` | `loadGameData()` not called | Add `SAT.loadGameData()` at top of function |
+| `SAT data not found for v…` | `GAME_VERSION` has no matching `SAT.DATA` key | Check `01_data_vX_Y.gs` exists and is pushed |
+| Recipe not found in index | Name mismatch (accent, case) | Check exact name in `01_data_v1_1.gs` |
+| OUT rate = 0 on extractor | Purity value not recognized | Valid values: `'Impur'`, `'Normal'`, `'Pur'` |
+| Assistant sidebar not opening | `onOpen` trigger not installed | Menu SAT → ⚙️ Enable assistant on startup |
+
+---
+
+## 🔄 Versioning
+
+Version numbers are computed automatically by **GitVersion** from the git history:
+
+- `feat:` → minor bump
+- `fix:` / `chore:` → patch bump  
+- `feat!:` or `BREAKING CHANGE` → major bump
+
+The `VERSION` field in `00_core_config.gs` is injected by the CI deploy job.
+Do **not** manually edit `VERSION` — it will be overwritten.
+
+See [GitVersion.yml](../GitVersion.yml) for the branching strategy configuration.
 
 | Fichier | Namespace | Rôle |
 |---|---|---|
