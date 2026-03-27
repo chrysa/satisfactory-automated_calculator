@@ -20,13 +20,16 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      - name: Auth + config (production)
+      - name: Auth + config
         run: |
           if [ -z '${{ secrets.CLASPRC_JSON }}' ]; then
             echo '❌ Secret CLASPRC_JSON is not set'; exit 1
           fi
           printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
           python3 -m json.tool ~/.clasprc.json > /dev/null || (echo '❌ CLASPRC_JSON secret is invalid JSON'; exit 1)
+          if [ -z '${{ secrets.CLASP_SCRIPT_ID }}' ]; then
+            echo '❌ Secret CLASP_SCRIPT_ID is not set'; exit 1
+          fi
           printf '%s' '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > .clasp.json
 
       - name: Validate files

@@ -339,7 +339,7 @@ SAT.Assistant = {
       '.refr:disabled{background:#9aa0a6;cursor:default;}',
       '.imp{background:#137333;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;',
       '  font-size:12px;font-weight:600;margin-top:4px;width:100%;}',
-      '.imp:hover{background:#0d652d;}'
+      '.imp:hover{background:#0d652d;}',
       '.act{background:#fff;color:#1a73e8;border:1px solid #1a73e8;padding:5px 10px;border-radius:6px;',
       '  cursor:pointer;font-size:11px;font-weight:600;margin:2px 3px 0 0;display:inline-block;}',
       '.act:hover{background:#e8f0fe;}',
