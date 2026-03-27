@@ -6,7 +6,7 @@
 repos:
   # ─── Hooks standards ──────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-json
         name: Vérification syntaxe JSON
