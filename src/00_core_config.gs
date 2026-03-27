@@ -2,16 +2,19 @@
  * 00_core_config.gs — S.A.T. application configuration
  *
  * Contains only tool configuration (sheets, columns, purity,
- * version). Game data lives in versioned files: 01_data_vX_Y.gs
+ * version). Game data lives in versioned files: src/data/01_data_vX_Y.gs
  *
  * ADDING SUPPORT FOR A NEW SATISFACTORY VERSION:
- *   1. Copy src/01_data_TEMPLATE.gs → src/01_data_v2_0.gs
+ *   1. Copy templates/01_data_TEMPLATE.gs → src/data/01_data_v2_0.gs
  *   2. Populate SAT.DATA['2.0'] with machines/resources/recipes
  *   3. Set GAME_VERSION: '2.0' below
  *   4. Deploy: make push
  *
- * Each game version is isolated in its own 01_data_vX_Y.gs file.
- * Multiple versions can coexist — only GAME_VERSION is active.
+ * DATA ROUTER — SAT.loadGameData() (bottom of this file):
+ *   Reads SAT.CFG.GAME_VERSION and loads the matching entry from
+ *   SAT.DATA[version], which is populated by src/data/01_data_vX_Y.gs.
+ *   Multiple versions can coexist in src/data/ — only GAME_VERSION is active.
+ *   src/data/ is deployed to GAS by clasp (rootDir: "src").
  * ============================================================ */
 
 var SAT = this.SAT || (this.SAT = {});

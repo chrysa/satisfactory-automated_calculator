@@ -57,11 +57,16 @@ jobs:
           COUNT=$(find src/ -name "*.gs" | wc -l)
           echo "📂 $COUNT .gs files found"
           [ "$COUNT" -ge 10 ] || (echo '❌ Expected at least 10 .gs files'; exit 1)
+          # Verify at least one versioned data file exists in src/data/
+          DATA=$(find src/data/ -name "01_data_v*.gs" 2>/dev/null | wc -l)
+          echo "  Data files in src/data/: $DATA"
+          [ "$DATA" -ge 1 ] || (echo '❌ No versioned data file found in src/data/ (expected 01_data_v*.gs)'; exit 1)
+          echo '✅ File counts OK'
 
       - name: Reject debug/temp files
         run: |
           BAD=$(find src/ \( -name "*_completion.gs" -o -name "AUTOMATION.gs" \
-                           -o -name "50_verify_and_fix.gs" -o -name "01_data_TEMPLATE.gs" \) 2>/dev/null)
+                           -o -name "50_verify_and_fix.gs" -o -name "TEMPLATE*.gs" \) 2>/dev/null)
           [ -z "$BAD" ] || (echo "❌ Debug/template files found in src/: $BAD"; exit 1)
           echo '✅ No debug or template files'
 

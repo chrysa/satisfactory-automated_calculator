@@ -435,6 +435,7 @@ function _installDashboard() {
   sh.setColumnWidth(7, 75);   // G
   sh.setColumnWidth(8, 75);   // H
   sh.setFrozenRows(2);
+  sh.setTabColor('#1A237E'); // Indigo 900 — analytics/overview
 
   // ── Graphiques permanents (vides si pas de données) ────────────────────────
   _installDashboardCharts(sh);
@@ -616,7 +617,45 @@ function _installProduction() {
   sh.getRange(cfg.HDR_ROW, c.SLOOP)
     .setNote('Nb de Somersloops dans les machines (0-4).\nChaque loop double le taux de sortie (×2^N).');
 
-  SAT.Log.ok('Production installée (' + ROWS + ' lignes pré-formatées + col Somersloops)');
+  // ── Freeze column A (keep Étage always visible when scrolling right) ──────
+  sh.setFrozenColumns(1);
+
+  // ── Conditional formatting ─────────────────────────────────────────────────
+  // Applied in priority order (first rule wins on conflict):
+  //   1. Error rows (Flags contains ERR)  → red
+  //   2. Recipe present + Nb=0 (TODO)     → amber
+  //   3. OC at max (250%)                 → orange tint on OC cell
+  //   4. Somersloops slotted (> 0)        → purple tint on Sloop cell
+  var datR     = cfg.DAT_ROW;
+  var fullRow  = sh.getRange(datR, 1, ROWS, headers.length);
+  var ocCell   = sh.getRange(datR, c.OC,    ROWS, 1);
+  var slpCell  = sh.getRange(datR, c.SLOOP, ROWS, 1);
+
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=ISNUMBER(SEARCH("ERR",$I' + datR + '))')
+      .setBackground('#FFCDD2').setFontColor('#B71C1C')
+      .setRanges([fullRow]).build(),
+
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=AND($C' + datR + '<>"",$F' + datR + '=0)')
+      .setBackground('#FFF9C4').setFontColor('#827717')
+      .setRanges([fullRow]).build(),
+
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberEqualTo(250)
+      .setBackground('#FFE0B2').setFontColor('#E65100')
+      .setRanges([ocCell]).build(),
+
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberGreaterThan(0)
+      .setBackground('#EDE7F6').setFontColor('#6A1B9A')
+      .setRanges([slpCell]).build()
+  ]);
+
+  sh.setTabColor('#1565C0'); // Blue 800 — main production sheet
+
+  SAT.Log.ok('Production installée (' + ROWS + ' lignes + mise en forme conditionnelle)');
 }
 
 // ─── Recettes ───────────────────────────────────────────────────────────────
@@ -673,6 +712,7 @@ function _installRecipes() {
     .setColumnWidth(9, 180).setColumnWidth(10, 90)
     .setColumnWidth(11, 65);
 
+  sh.setTabColor('#4A148C'); // Purple 900 — reference sheet
   SAT.Log.ok('Recettes installées (' + cfg.RECIPES.length + ')');
 }
 
@@ -703,6 +743,7 @@ function _installResources() {
 
   sh.setColumnWidth(1, 220).setColumnWidth(2, 130);
 
+  sh.setTabColor('#1B5E20'); // Green 900 — reference sheet (resources)
   SAT.Log.ok('Ressources installées (' + cfg.RESOURCES.length + ')');
 }
 
@@ -741,6 +782,7 @@ function _installMachines() {
     .setColumnWidth(6, 80) .setColumnWidth(7, 80).setColumnWidth(8, 80)
     .setColumnWidth(9, 100);
 
+  sh.setTabColor('#E65100'); // Deep Orange — reference sheet (machines)
   SAT.Log.ok('Machines installées (' + cfg.MACHINES.length + ')  [W×L×H + Somersloops]');
 }
 
@@ -802,8 +844,7 @@ function _installFloors() {
     .setColumnWidth(7, 110).setColumnWidth(8, 85) //  nucl., haut.
     .setColumnWidth(9, 85) .setColumnWidth(10, 85) // larg., long.
     .setColumnWidth(11, 95).setColumnWidth(12, 90); // surface, fondations
-
-  SAT.Log.ok('\u00c9tages \u2014 3 exemples pr\u00e9-remplis (\u00e0 personnaliser)');
+  sh.setTabColor('#37474F'); // Blue Grey 800 — structural/floors  SAT.Log.ok('\u00c9tages \u2014 3 exemples pr\u00e9-remplis (\u00e0 personnaliser)');
 }
 
 // ─── Objectifs (Solver targets) ────────────────────────────────────────────────
@@ -849,6 +890,7 @@ function _installObjectives() {
   // Protect status + machine count columns (written by solver)
   sh.getRange(2, 5, 200, 3).setBackground('#F5F5F5');
 
+  sh.setTabColor('#880E4F'); // Pink 900 — objectives/solver
   SAT.Log.ok('Objectifs — feuille solveur installée');
 }
 
