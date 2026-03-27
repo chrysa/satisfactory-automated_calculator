@@ -33,8 +33,9 @@ jobs:
 
       - name: Auth + config (staging)
         run: |
-          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID_STAGING }}","rootDir":"src"}' > .clasp.json
+          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          python3 -m json.tool ~/.clasprc.json > /dev/null || (echo '❌ CLASPRC_JSON secret is invalid JSON'; exit 1)
+          printf '%s' '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID_STAGING }}","rootDir":"src"}' > .clasp.json
 
       - name: Validate files
         run: |
@@ -76,8 +77,9 @@ jobs:
 
       - name: Auth + config (production)
         run: |
-          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          echo '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > .clasp.json
+          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          python3 -m json.tool ~/.clasprc.json > /dev/null || (echo '❌ CLASPRC_JSON secret is invalid JSON'; exit 1)
+          printf '%s' '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > .clasp.json
 
       - name: Validate files
         run: |
