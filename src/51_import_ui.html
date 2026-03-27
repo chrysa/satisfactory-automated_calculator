@@ -361,15 +361,30 @@ function extractProduction(allObjects) {
     }
 
     const z     = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
-    const floor = Math.round(z / 400);
-    return { machine, recipe, oc, sloop, purity, floor };
+    return { machine, recipe, oc, sloop, purity, z };
   });
 
-  // Group identical machines per floor
+  // ── Cluster z-values en étages par proximité ──────────────────────────────
+  // Les machines au même étage peuvent avoir des z légèrement différentes.
+  // On regroupe les z proches (< 300 cm d'écart entre groupes consécutifs).
+  const THRESHOLD = 300; // cm (~3m)
+  const zValues = [...new Set(extracted.map(e => e.z))].sort((a, b) => a - b);
+  const zToFloor = {};
+  let floorIdx = 0;
+  if (zValues.length > 0) {
+    zToFloor[zValues[0]] = 0;
+    for (let i = 1; i < zValues.length; i++) {
+      if (zValues[i] - zValues[i - 1] > THRESHOLD) floorIdx++;
+      zToFloor[zValues[i]] = floorIdx;
+    }
+  }
+
+  // Group identical machines per floor-cluster
   const groups = {};
   for (const e of extracted) {
-    const k = `${e.floor}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
-    if (!groups[k]) groups[k] = { ...e, nb: 0 };
+    const floor = zToFloor[e.z] ?? 0;
+    const k = `${floor}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
+    if (!groups[k]) groups[k] = { ...e, floor, nb: 0 };
     groups[k].nb++;
   }
 
