@@ -14,7 +14,7 @@ var SAT = this.SAT || (this.SAT = {});
 // ── Open the import sidebar ───────────────────────────────────────────────────
 
 function SAT_openImportSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile('51_import')
+  var html = HtmlService.createHtmlOutputFromFile('51_import_ui')
     .setTitle('Importer une sauvegarde .sav')
     .setWidth(460);
   SpreadsheetApp.getUi().showSidebar(html);
