@@ -74,7 +74,7 @@ La feuille **📈 Production** est le cœur du calculateur. Chaque ligne représ
 ### Exemple de saisie
 
 ```
-Étage 1 | Constructeur | Plaque de fer | (auto) | (auto) | 4 | 100 | Normal | | 
+Étage 1 | Constructeur | Plaque de fer | (auto) | (auto) | 4 | 100 | Normal | |
 ```
 
 Cela représente : **4 Constructeurs** à **100 % d'overclock** avec la recette **Plaque de fer** — les colonnes D et E sont remplies automatiquement (20/min OUT, 30/min IN).
@@ -82,7 +82,7 @@ Cela représente : **4 Constructeurs** à **100 % d'overclock** avec la recette 
 ### Exemple avec extracteur overclocké
 
 ```
-Étage 0 | Foreuse Mk.3 | Minerai de fer (Foreuse Mk.3) | (auto) | (auto) | 1 | 200 | Pur | ⚡ 200% OC → 233% d'énergie | 
+Étage 0 | Foreuse Mk.3 | Minerai de fer (Foreuse Mk.3) | (auto) | (auto) | 1 | 200 | Pur | ⚡ 200% OC → 233% d'énergie |
 ```
 
 Le flag overclock est généré automatiquement dès que vous modifiez la ligne.
@@ -317,19 +317,19 @@ Les lignes en erreur sont mises en évidence en rouge automatiquement.
 
 ## 11. Questions fréquentes
 
-**Q : Les listes déroulantes ne s'affichent pas dans la colonne Machine.**  
+**Q : Les listes déroulantes ne s'affichent pas dans la colonne Machine.**
 R : Vérifiez que la feuille 🏗️ Machines contient des données à partir de la ligne 2. Si elle est vide, allez dans le menu SAT → Réinstaller pour recharger les données de base.
 
-**Q : J'ai ajouté des ressources mais elles n'apparaissent pas dans les listes.**  
+**Q : J'ai ajouté des ressources mais elles n'apparaissent pas dans les listes.**
 R : Les validations se reconstruisent à l'installation. Allez dans le menu SAT → Recalculer ou rouvrez le classeur.
 
-**Q : Le Dashboard affiche `#ERROR` dans certaines cellules.**  
+**Q : Le Dashboard affiche `#ERROR` dans certaines cellules.**
 R : Fermez et rouvrez le classeur. Si le problème persiste, allez dans le menu SAT → Réinstaller.
 
-**Q : Puis-je ajouter mes propres types de ressources ?**  
+**Q : Puis-je ajouter mes propres types de ressources ?**
 R : Oui. Ajoutez simplement une ligne dans 📋 Ressources avec le type de votre choix. Il n'y a pas de liste fermée.
 
-**Q : Comment exporter mes données ?**  
+**Q : Comment exporter mes données ?**
 R : Utilisez **Fichier → Télécharger → Microsoft Excel (.xlsx)** ou **.csv** depuis Google Sheets pour exporter n'importe quelle feuille.
 
 ---

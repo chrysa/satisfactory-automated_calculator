@@ -1,0 +1,52 @@
+# Configuration pre-commit
+# Voir : https://pre-commit.com
+# Installation : pip install pre-commit && pre-commit install
+# Exécution manuelle : pre-commit run --all-files
+
+repos:
+  # ─── Hooks standards ──────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-json
+        name: Vérification syntaxe JSON
+      - id: check-yaml
+        name: Vérification syntaxe YAML
+      - id: end-of-file-fixer
+        name: Fin de fichier
+      - id: trailing-whitespace
+        name: Espaces en fin de ligne
+      - id: check-merge-conflict
+        name: Marqueurs de conflit git
+      - id: check-added-large-files
+        name: Fichiers volumineux
+        args: [--maxkb=500]
+
+  # ─── chrysa/pre-commit-tools ──────────────────────────────────────────────
+  # https://github.com/chrysa/pre-commit-tools
+  # Note: hooks JS/env not yet in a stable tag — using HEAD SHA until next release
+  - repo: https://github.com/chrysa/pre-commit-tools
+    rev: '2dfe7fbf8dcfe33f95fab70aa91e4318b0af8823'
+    hooks:
+      # Détection console.log dans les scripts Node.js (scripts/*.js)
+      # Note : les fichiers .gs (Google Apps Script) ne sont pas encore couverts.
+      # Suivi dans : https://github.com/chrysa/pre-commit-tools/issues
+      - id: console-log-detection
+        name: Détection console.log (JS)
+      - id: console-debug-detection
+        name: Détection console.debug (JS)
+      - id: console-table-detection
+        name: Détection console.table (JS)
+      # Vérification des fichiers .env (secrets non commités)
+      - id: env-file-check
+        name: Vérification .env
+
+  # ─── Hooks locaux ─────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: node-syntax-check
+        name: Syntaxe Node.js (scripts/)
+        entry: node --check
+        language: system
+        types: [javascript]
+        files: ^scripts/.*\.js$
