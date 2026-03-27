@@ -388,7 +388,11 @@ function _installDashboard() {
   sh.setRowHeight(clRow, 28);
 
   var changelog = [
-    ['v' + cfg.VERSION, '22 Mar 2026',
+    ['v' + cfg.VERSION, '27 Mar 2026',
+      '\u2022 Smart Assistant sidebar: bottleneck detection, one-click solver fix, OC normalizer.\n' +
+      '\u2022 Assistant: phase progression coaching, nuclear waste alert, surplus detection.\n' +
+      '\u2022 CI: release job auto-creates GitHub release on push to main.'],
+    ['v3.5.0', '22 Mar 2026',
       '\u2022 Columns K (Qt/min STD) and L (\u26A1 MW): standard rate + power draw per line.\n' +
       '\u2022 Dashboard: electricity section, bottlenecks, top resources, permanent charts.\n' +
       '\u2022 Archive & migrate: snapshot a factory before a game version update.\n' +
