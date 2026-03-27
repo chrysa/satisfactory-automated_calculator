@@ -1,14 +1,42 @@
-name: Deploy to Google Apps Script
+name: CI / Deploy
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: "🔍 Lint & Validate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON
+        run: |
+          python3 -m json.tool src/appsscript.json > /dev/null || (echo '❌ src/appsscript.json invalid'; exit 1)
+          echo '✅ JSON OK'
+
+      - name: Check .gs file count
+        run: |
+          COUNT=$(find src/ -name "*.gs" | wc -l)
+          echo "📂 $COUNT fichiers .gs"
+          [ "$COUNT" -ge 5 ] || (echo '❌ Pas assez de fichiers .gs'; exit 1)
+
+      - name: Check for debug/test files
+        run: |
+          BAD=$(find src/ -name "*_completion.gs" -o -name "AUTOMATION.gs" -o -name "50_verify_and_fix.gs" 2>/dev/null)
+          [ -z "$BAD" ] || (echo "❌ Fichiers de debug trouvés: $BAD"; exit 1)
+          echo '✅ Pas de fichiers de debug'
+
   deploy:
     name: "🚀 Deploy → GAS"
     runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name != 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
