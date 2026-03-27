@@ -6,7 +6,7 @@
 repos:
   # ─── Hooks standards ──────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-json
         name: Vérification syntaxe JSON
@@ -41,11 +41,16 @@ repos:
       - id: env-file-check
         name: Vérification .env
 
-  # ─── Hooks locaux ─────────────────────────────────────────────────────────
+  # ─── Hooks locaux (définis dans .pre-commit-hooks.yaml) ──────────────────
   - repo: local
     hooks:
-      - id: node-syntax-check
-        name: Syntaxe Node.js (scripts/)
+      - id: check-gs-syntax
+        name: GAS syntax check (.gs)
+        entry: node --check
+        language: system
+        files: \.gs$
+      - id: check-scripts-syntax
+        name: Node.js scripts syntax check
         entry: node --check
         language: system
         types: [javascript]
