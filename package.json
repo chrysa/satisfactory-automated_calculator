@@ -12,7 +12,7 @@
   "devDependencies": {
     "@etothepii/satisfactory-file-parser": "^3.3.1",
     "gas-mock-globals": "^2.0.3",
-    "jest": "^29.7.0"
+    "jest": "^30.3.0"
   },
   "jest": {
     "testEnvironment": "node",
