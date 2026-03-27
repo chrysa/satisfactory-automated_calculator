@@ -146,6 +146,9 @@ function SAT_install() {
 
   Logger.log('=== Installation terminée v' + cfg.VERSION + ' ===\n');
   ss.toast('Installation SAT v' + cfg.VERSION + ' terminée !', 'S.A.T.', 5);
+
+  // Enregistrer le trigger installable pour l'ouverture auto de l'assistant
+  try { SAT_setupTriggers(); } catch(e) { Logger.log('ERR install triggers: ' + e.message); }
 }
 
 /**

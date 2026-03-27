@@ -31,7 +31,6 @@ function onOpen(e) {
       } else {
         // Sheets existantes + version antérieure connue → mise à jour structurelle
         // (Dashboard + validations reconstruits, données de production préservées)
-        ss.toast('Mise à jour SAT ' + stored + ' \u2192 ' + cur + '\u2026', 'SAT', 8);
         try {
           _installDashboard();
           _setupValidations();
@@ -39,6 +38,8 @@ function onOpen(e) {
           Logger.log('ERR soft update: ' + e.message);
         }
         props.setProperty('SAT_VERSION', cur);
+        props.setProperty('SAT_NOTIFY_VERSION',
+          'Version ' + stored + ' \u2192 ' + cur + '\n\nDashboard et validations reconstruits.\nDonnées de production préservées.');
         Logger.log('SAT v' + cur + ' \u2014 mise \u00e0 jour structurelle (was v' + stored + ')');
       }
     }
@@ -48,9 +49,6 @@ function onOpen(e) {
 
   // 3. Recalcul automatique (met à jour le Dashboard y compris la version en B2)
   try { SAT_recalcAll(); } catch(e) {}
-
-  // 4. Ouvrir l'assistant par défaut
-  try { SAT_openAssistant(); } catch(e) {}
 }
 
 // ─── Construction du menu ─────────────────────────────────────────────────
@@ -83,6 +81,8 @@ function _buildMenu() {
       .addItem('Diagnostic',                          'SAT_DIAGNOSTIC')
       .addItem('Mettre à jour (reinstall)',            'SAT_forceUpdate')
       .addItem('RESET complet',                       'SAT_resetAll')
+      .addSeparator()
+      .addItem('⚙️ Activer l\'assistant au démarrage',  'SAT_setupTriggers')
       .addToUi();
   } catch(e) {
     Logger.log('ERR _buildMenu: ' + e.message);
@@ -744,5 +744,57 @@ function SAT_archiveAndMigrate() {
 
   } catch(e) {
     ui.alert('Erreur lors de l\'archivage : ' + e.message);
+  }
+}
+
+// ─── Trigger installable pour l'ouverture auto de l'assistant ────────────────
+
+/**
+ * Enregistre un trigger installable onOpen qui ouvre l'assistant au démarrage.
+ * Doit être appelé avec les autorisations complètes (depuis le menu, pas un
+ * simple trigger). Sans risque de doublon — vérifie si déjà présent.
+ */
+function SAT_setupTriggers() {
+  try {
+    var ss       = SpreadsheetApp.getActive();
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'SAT_onOpenInstallable') {
+        ss.toast('Trigger déjà configuré.', 'S.A.T.', 3);
+        return;
+      }
+    }
+    ScriptApp.newTrigger('SAT_onOpenInstallable')
+      .forSpreadsheet(ss)
+      .onOpen()
+      .create();
+    ss.toast('Assistant configuré : il s\'ouvrira au prochain démarrage.', 'S.A.T.', 4);
+    Logger.log('SAT: installable onOpen trigger registered');
+  } catch(e) {
+    SpreadsheetApp.getUi().alert('Erreur setup trigger : ' + e.message);
+    Logger.log('ERR SAT_setupTriggers: ' + e.message);
+  }
+}
+
+/**
+ * Handler du trigger installable onOpen.
+ * Contrairement au simple trigger onOpen(), il peut appeler showSidebar().
+ * Affiche d'abord le popup de nouvelle version si en attente, puis l'assistant.
+ */
+function SAT_onOpenInstallable() {
+  // Popup nouvelle version si en attente
+  try {
+    var props = PropertiesService.getDocumentProperties();
+    var msg   = props.getProperty('SAT_NOTIFY_VERSION');
+    if (msg) {
+      props.deleteProperty('SAT_NOTIFY_VERSION');
+      SpreadsheetApp.getUi().alert('🆕 S.A.T. mis à jour', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+    }
+  } catch(e) {
+    Logger.log('ERR SAT_onOpenInstallable notify: ' + e.message);
+  }
+  // Ouvrir l'assistant
+  try { SAT_openAssistant(); } catch(e) {
+    Logger.log('ERR SAT_onOpenInstallable assistant: ' + e.message);
   }
 }
