@@ -1,10 +1,10 @@
-# Guide GitHub Copilot — S.A.T. v3.2
+# Guide GitHub Copilot — S.A.T. v3.5.1
 
-**Mis à jour** : 16 mars 2026 | **Version app** : 3.2 | **Jeu** : Satisfactory 1.1  
+**Mis à jour** : 27 mars 2026 | **Version app** : 3.5.1 | **Jeu** : Satisfactory 1.1  
 
 ---
 
-## 📂 Organisation des fichiers (8 modules)
+## 📂 Organisation des fichiers (9 modules)
 
 | Fichier | Namespace | Rôle |
 |---|---|---|
@@ -16,6 +16,7 @@
 | `40_install.gs` | — | `SAT_install()` — création des feuilles |
 | `41_triggers.gs` | — | `onOpen()`, `onEdit()` |
 | `42_menu.gs` | — | `SAT_buildMenu()` — menu Google Sheets |
+| `50_assistant.gs` | `SAT.Assistant` | Analyse usine, détection goulots, suggestions actionnables |
 
 **Ordre de chargement** : alphabétique → les préfixes numériques garantissent l'ordre correct des dépendances.
 
@@ -61,6 +62,7 @@ var cfg = SAT.CFG;
 // Feuilles
 cfg.SHEETS.PROD   // '🏭 Production'
 cfg.SHEETS.DASH   // '📊 Tableau de bord'
+cfg.SHEETS.OBJ    // '🎯 Objectifs'
 cfg.SHEETS.REC    // '📖 Recettes'
 cfg.SHEETS.RES    // '💎 Ressources'
 cfg.SHEETS.MACH   // '⚙️ Machines'
@@ -77,6 +79,9 @@ cfg.C.OC       // 7 — G
 cfg.C.PUR      // 8 — H
 cfg.C.FLAGS    // 9 — I
 cfg.C.CAUSE    // 10 — J
+cfg.C.STD_RATE // 11 — K (Qt/min à OC=100%, sans suralimentation)
+cfg.C.MW       // 12 — L (⚡ consommation électrique totale)
+cfg.C.SLOOP    // 13 — M (Somersloops : 0–4)
 
 // Pureté
 cfg.PURITY['Impur']   // 0.5

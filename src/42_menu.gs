@@ -62,6 +62,7 @@ function _buildMenu() {
       .addItem('Résumé de production',                'SAT_SHOW_SUMMARY')
       .addSeparator()
       .addItem('➕ Ajouter une ligne de production',    'SAT_showAddProductionForm')
+      .addItem('📂 Importer depuis une sauvegarde',    'SAT_openImportSidebar')
       .addSeparator()
       .addItem('Ajouter un étage',                    'SAT_ADD_FLOOR')
       .addItem('Lister les étages',                   'SAT_LIST_FLOORS')

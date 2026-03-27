@@ -17,6 +17,8 @@
 9. [Le menu SAT](#9-le-menu-sat)
 10. [Comprendre les erreurs](#10-comprendre-les-erreurs)
 11. [Questions fréquentes](#11-questions-fréquentes)
+12. [L'assistant intelligent](#12-lassistant-intelligent)
+13. [Importer depuis un fichier de sauvegarde](#13-importer-depuis-un-fichier-de-sauvegarde)
 
 ---
 
@@ -257,6 +259,8 @@ Les Somersloops sont des artefacts rares trouvés sur la carte. Insérés dans u
 
 Indiquez `somersloop` dans la colonne **Note** d'une ligne pour que le flag `🔮 Somersloop (×2 OUT)` soit généré automatiquement.
 
+> La colonne **M — Somersloops** (0–4) est pré-remplie automatiquement lors d'un import depuis un fichier de sauvegarde (voir section 13).
+
 ### Phases de l'Ascenseur Spatial
 
 L'objectif du jeu est de compléter les 5 phases de l'Ascenseur Spatial. Utilisez le calculateur pour planifier la production de ces pièces :
@@ -277,6 +281,7 @@ Le menu **SAT** apparaît dans la barre de menus Google Sheets après chaque ouv
 
 | Option | Action |
 |---|---|
+| **🤖 Ouvrir l'assistant** | Ouvre la sidebar d'analyse — détecte goulots, OC élevé, phase, nucléaire |
 | **Recalcul complet** | Relance le moteur de calcul sur toutes les lignes de production |
 | **Résumé de production** | Popup : nb lignes, machines actives, étages, erreurs |
 | **➕ Ajouter une ligne de production** | Ouvre un formulaire modal (dropdowns recette/machine/étage, OC%, pureté) |
@@ -329,4 +334,82 @@ R : Utilisez **Fichier → Télécharger → Microsoft Excel (.xlsx)** ou **.csv
 
 ---
 
-*S.A.T. v3.4.2 — Google Apps Script*
+## 12. L'assistant intelligent
+
+L'assistant S.A.T. est accessible via **SAT → 🤖 Ouvrir l'assistant**. Il analyse l'état complet de votre usine et affiche des cartes de recommandation dans une sidebar.
+
+### Types de cartes
+
+| Icône | Type | Déclencheur |
+|---|---|---|
+| ❌ | Erreur de configuration | Lignes avec Machine, Recette ou Nb manquants |
+| ⚠️ | Avertissement | Lignes incomplètes ou OC > 150 % |
+| 🔴 | Goulot | Ressource consommée > produite (déficit) |
+| ℹ️ | Information | Progression de phase, surplus détecté |
+| ☢️ | Nucléaire | Centrale nucléaire présente (rappel déchets) |
+| ⚡ | Énergie | Résumé MW total de l'usine |
+
+### Boutons d'action
+
+Chaque carte peut proposer des boutons qui exécutent directement des actions sans quitter la sidebar :
+
+| Bouton | Action |
+|---|---|
+| **Fix goulot** | Lance le solveur et crée les lignes de production manquantes |
+| **Normaliser OC** | Règle Nb + OC=100 % équivalent pour un étage donné |
+| **Voir Production** | Navigation directe vers la feuille Production |
+| **Voir Objectifs** | Navigation directe vers la feuille Objectifs |
+
+> Après chaque action, un toast de confirmation s'affiche et la sidebar se rafraîchit automatiquement.
+
+---
+
+## 13. Importer depuis un fichier de sauvegarde
+
+S.A.T. peut pré-remplir la feuille Production à partir d'un fichier de sauvegarde Satisfactory (`.sav`), **directement depuis le menu**, sans aucun outil en local.
+
+### Comment ça fonctionne
+
+1. Menu **SAT → 📂 Importer depuis une sauvegarde** — une sidebar s'ouvre
+2. Clique sur le sélecteur de fichier et choisis ton `.sav`
+3. La lib `@etothepii/satisfactory-file-parser` est chargée depuis le CDN `esm.sh` **dans ton navigateur** — aucune donnée n'est envoyée à Google
+4. L'analyse s'effectue localement, une prévisualisation s'affiche
+5. Clique **➕ Ajouter à Production** ou **🔄 Remplacer Production**
+6. Les lignes sont écrites dans la feuille et le recalcul se déclenche automatiquement
+
+> ⚠️ **Prototype** — Le parsing browser-side dépend du sandbox GAS HtmlService et du CDN esm.sh. Si la lib ne charge pas, utilise l'alternative ligne de commande ci-dessous.
+
+### Alternative — ligne de commande
+
+```bash
+npm install
+make parse-save SAV="/chemin/vers/ma-partie.sav"
+```
+
+Puis importe le CSV généré manuellement dans la feuille Production.
+
+### Données extraites automatiquement
+
+| Donnée | Source dans la save |
+|---|---|
+| Machine, Recette | Chemin de classe Unreal du bâtiment |
+| Overclock % | `mCurrentPotentialConversion` (× 100) |
+| Pureté | `EResourcePurity` du nœud |
+| Somersloops | `mNumSomersloopsSlotted` / `mNumSlotsUsedForced` |
+| Étage | Altitude Z arrondie à 400 cm → nom "Étage N" automatique |
+
+### Rapport de collectibles
+
+En plus de la prévisualisation, la sidebar affiche un résumé :
+
+| Indicateur | Contenu |
+|---|---|
+| **Disques durs** | Collectés / total + % + sites restants |
+| **Somersloops** | Slottés dans machines + en inventaire + dans le monde |
+| **Sphères de Mercer** | En inventaire + encore dans le monde |
+| **Limaces d'énergie** | Vertes/Jaunes/Bleues + shards disponibles |
+| **Durée de jeu** | Extraite de l'en-tête de la save |
+
+---
+
+*S.A.T. v3.5.1 — Google Apps Script*

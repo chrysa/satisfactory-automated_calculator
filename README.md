@@ -1,6 +1,6 @@
 # 🏭 S.A.T. — Satisfactory Automated Tracker
 
-**Version app**: 3.4.2 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 8 modules
+**Version app**: 3.5.1 | **Jeu**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Fichiers**: 9 modules
 
 Calculateur de production pour Satisfactory, basé sur Google Sheets / Apps Script. Saisie par recette officielle, calcul automatique des taux, alertes intelligentes, dashboard en temps réel.
 
@@ -10,7 +10,7 @@ Calculateur de production pour Satisfactory, basé sur Google Sheets / Apps Scri
 
 ```
 satisfactory_automated_calculator/
-├── src/                        ← Code Google Apps Script (8 fichiers)
+├── src/                        ← Code Google Apps Script (11 fichiers)
 │   ├── 00_core_config.gs       ← Config app + loader de données de jeu
 │   ├── 01_data_v1_1.gs         ← Données Satisfactory 1.1 (machines, ressources, recettes)
 │   ├── 10_engine.gs            ← Moteur de calcul (taux, flags, erreurs)
@@ -18,7 +18,12 @@ satisfactory_automated_calculator/
 │   ├── 30_recalc.gs            ← Point d'entrée recalcul
 │   ├── 40_install.gs           ← Installation / réinitialisation
 │   ├── 41_triggers.gs          ← Déclencheurs (onOpen, onEdit)
-│   └── 42_menu.gs              ← Menu SAT dans Google Sheets
+│   ├── 42_menu.gs              ← Menu SAT dans Google Sheets
+│   ├── 50_assistant.gs         ← Assistant intelligent (analyse + suggestions)
+│   ├── 51_import.gs            ← Serveur : réception des lignes parsées → Production
+│   └── 51_import.html          ← Sidebar : parsing .sav browser-side (esm.sh CDN)
+├── scripts/                    ← Outils Node.js hors GAS
+│   └── parse-save.js           ← Parser de sauvegarde .sav → CSV Production
 ├── README.md                   ← Ce fichier
 ├── GUIDE_UTILISATEUR.md        ← Guide d'utilisation complet
 ├── COPILOT_GUIDE.md            ← Patterns de code pour GitHub Copilot
@@ -30,8 +35,19 @@ satisfactory_automated_calculator/
 
 ---
 
-## ✨ Nouveautés v3.4.x
+## ✨ Nouveautés v3.5.x
 
+| Fonctionnalité | Statut |
+|---|---|
+| **🤖 Assistant intelligent** | ✅ Sidebar d'analyse — goulots, OC élevé, progression de phase, nucléaire, surplus |
+| **Suggestions actionnables** | ✅ Boutons dans l'assistant : fix goulot (solveur), normalisation OC |
+| **Parser de sauvegarde** | ✅ Menu "Importer depuis une sauvegarde" — parsing `.sav` dans le navigateur, import direct + rapport collectibles |
+| **CI Release automatique** | ✅ GitHub Release créée automatiquement à chaque push sur main |
+
+<details>
+<summary>Historique des versions antérieures</summary>
+
+### v3.4.x
 | Fonctionnalité | Statut |
 |---|---|
 | **Colonnes Qt/min STD & ⚡ MW** | ✅ Taux standard + consommation électrique par ligne |
@@ -42,26 +58,8 @@ satisfactory_automated_calculator/
 | **Archivage & migration** | ✅ Archiver une usine et démarrer une nouvelle version jeu |
 | **Formulaire d'ajout production** | ✅ Modal HTML — dropdowns recette/machine/étage, OC%, pureté |
 | **Calculateur taille d'étages** | ✅ Surface m², fondations 8×8, marge configurable entre machines |
-| **Dimensions machines** | ✅ Largeur × Longueur (m) dans le référentiel Machines |
-| **Fusionnement colonnes Dashboard** | ✅ Quick start et Changelog sur toute la largeur |
 | **Backup données au reinstall** | ✅ Production (A–H) et Étages conservés après "Mettre à jour" |
 | **Bump version automatique** | ✅ `make push` incrémente automatiquement le patch de version |
-
-<details>
-<summary>Historique des versions antérieures</summary>
-
-### v3.4.1
-- Correction positions graphiques Dashboard (hors des tables de données)
-- Correction hauteurs de lignes (rows 11, 13 ne s'effondrent plus)
-- Fusion colonnes Quick start et Changelog sur toute la largeur (A–H)
-- Buff = 50 dans `_installDashboardCharts` et `_refreshDashboardCharts` synchronisés
-
-### v3.4
-- Dashboard v2 : section électricité, goulots, top ressources, graphiques permanents
-- Formulaire HTML d'ajout de ligne de production (modal)
-- Calculateur de taille d'étages + marge configurable
-- Archivage usine & migration vers une nouvelle version jeu
-- Colonnes K (Qt/min STD) et L (⚡ MW) dans Production
 
 ### v3.3.1
 - Correction mise à jour automatique Dashboard au changement de version
@@ -110,10 +108,12 @@ npm install -g @google/clasp
 
 ### Commandes
 ```bash
-make push         # Bump version patch + push vers Apps Script
-make pull         # Pull depuis Apps Script
-make open         # Ouvrir dans le navigateur
-make help         # Toutes les commandes
+make push                                # Bump version patch + push vers Apps Script
+make pull                                # Pull depuis Apps Script
+make open                                # Ouvrir dans le navigateur
+make parse-save SAV=chemin/save.sav      # Extraire machines d'une sauvegarde .sav → CSV + rapport collectibles
+make parse-save SAV=chemin/save.sav OUT=import.csv  # idem avec nom de sortie personnalisé
+make help                                # Toutes les commandes
 ```
 
 > `make push` incrémente automatiquement le patch (`3.4.2` → `3.4.3`) avant chaque déploiement.
@@ -147,6 +147,10 @@ make help         # Toutes les commandes
 - `41_triggers.gs` → `onOpen()`, `onEdit()`
 - `42_menu.gs` → menu **SAT** dans Google Sheets
 
+### Couche 4 — Intelligence
+- `50_assistant.gs` → `SAT.Assistant` — analyse complète de l'usine, détection de goulots, suggestions actionnables
+- `51_import.gs` + `51_import.html` → import de sauvegarde `.sav` directement depuis la sidebar (parsing browser-side via CDN)
+
 ---
 
 ## 🔄 Mise à jour pour une nouvelle version de Satisfactory
@@ -170,7 +174,13 @@ make push
 
 ```
 S.A.T.
+  🤖 Ouvrir l'assistant
+  ─────────────────────────────────
   Recalcul complet
+  Résumé de production
+  ─────────────────────────────────
+  ➕ Ajouter une ligne de production
+  📂 Importer depuis une sauvegarde
   Résumé de production
   ─────────────────────────────────
   ➕ Ajouter une ligne de production
@@ -195,7 +205,7 @@ S.A.T.
 
 ## ✅ Pre-Deployment Checklist
 
-- [ ] 8 fichiers `.gs` dans `src/`
+- [ ] 11 fichiers dans `src/` (9 `.gs` + 2 `.html`)
 - [ ] `appsscript.json` référence le bon scriptId
 - [ ] `.clasp.json` a `"rootDir": "src"`
 - [ ] Pas de modifications non commitées

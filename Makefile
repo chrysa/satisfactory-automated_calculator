@@ -1,4 +1,4 @@
-.PHONY: help deploy test backup sync clean install push pull verify setup-env open login bump-version
+.PHONY: help deploy test parse-save backup sync clean install push pull verify setup-env open login bump-version
 
 # 🧰 S.A.T 2026 - Makefile for Deployment Management
 # Usage: make [target]
@@ -170,6 +170,16 @@ test: ## Lancer les tests Jest (logique pure — sans GSheet)
 	else \
 		echo "$(YELLOW)⚠ package.json absent — lance : npm install$(NC)"; \
 	fi
+
+parse-save: ## Convertir un fichier de sauvegarde .sav en CSV Production
+	@if [ -z "$(SAV)" ]; then \
+		echo "$(RED)✗ Fichier .sav non spécifié$(NC)"; \
+		echo "$(YELLOW)  Usage : make parse-save SAV=<chemin/vers/save.sav> [OUT=output.csv]$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)📦 Parsing save file: $(SAV)$(NC)"
+	@node scripts/parse-save.js "$(SAV)" $(if $(OUT),"$(OUT)",)
+
 
 test-staging: push-staging ## Push vers staging + rappel d'ouverture du sheet de test
 	@if [ -n "$(SCRIPT_ID_STAGING)" ]; then \

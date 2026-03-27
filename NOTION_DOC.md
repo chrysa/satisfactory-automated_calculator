@@ -19,8 +19,10 @@
 6. [Flags automatiques](#flags-automatiques)
 7. [Étages](#étages)
 8. [Menu S.A.T.](#menu-sat)
-9. [Architecture technique](#architecture-technique)
-10. [Ajouter une version de Satisfactory](#ajouter-une-version-de-satisfactory)
+9. [Assistant intelligent](#assistant-intelligent)
+10. [Parser de sauvegarde](#parser-de-sauvegarde)
+11. [Architecture technique](#architecture-technique)
+12. [Ajouter une version de Satisfactory](#ajouter-une-version-de-satisfactory)
 
 ---
 
@@ -34,6 +36,8 @@ S.A.T. est un script Google Apps Script qui transforme un Google Sheet en calcul
 - Calcul automatique des taux à chaque modification
 - Alertes overclock, déchets nucléaires, limite convoyeur
 - Dashboard statistique en temps réel
+- **Assistant intelligent** — analyse goulots, OC, phases, surplus
+- **Parser de sauvegarde** — extrait machines + rapport collectibles depuis un fichier `.sav`
 - Protections des cellules/onglets en lecture seule
 
 ---
@@ -96,8 +100,11 @@ La feuille **🏭 Production** est le cœur du calculateur. Chaque lignes = une 
 | H | **Pureté** | Dropdown | `Impur` / `Normal` / `Pur` |
 | I | **Flags** | 🤖 Auto | Alertes overclock, nucléaire… |
 | J | **Cause** | 🤖 Auto | Diagnostic d'erreur |
+| K | **Qt/min STD** | 🤖 Auto | Taux à OC=100 % (référence) |
+| L | **⚡ MW** | 🤖 Auto | Consommation électrique totale |
+| M | **Somersloops** | Saisie | Nombre de somersloops slottés (0–4) |
 
-> Les colonnes **D, E, I, J** sont protégées. Elles ne doivent jamais être saisies manuellement.
+> Les colonnes **D, E, I, J, K, L** sont protégées. Elles ne doivent jamais être saisies manuellement.
 
 ### Exemple
 
@@ -179,9 +186,11 @@ La feuille **🏗️ Étages** définit la structure verticale de l'usine.
 
 | Option | Fonction |
 |---|---|
+| **🤖 Ouvrir l'assistant** | Sidebar d'analyse — goulots, OC élevé, phase, nucléaire, surplus |
 | **Recalcul complet** | Relance le moteur sur toutes les lignes |
 | **Résumé de production** | Popup : nb lignes, machines, étages, erreurs |
 | **➕ Ajouter une ligne de production** | Formulaire modal HTML — dropdowns recette/machine/étage, OC%, pureté |
+| **📂 Importer depuis une sauvegarde** | Sidebar browser-side — parse `.sav` + import direct dans Production |
 | **Ajouter un étage** | Prompt → ajoute une ligne dans 🏗️ Étages |
 | **Lister les étages** | Popup listant tous les étages définis |
 | **Taille des étages** | Surface m², fondations 8×8, marge configurable |
@@ -192,6 +201,79 @@ La feuille **🏗️ Étages** définit la structure verticale de l'usine.
 | **Mettre à jour (reinstall)** | Reconstruit les feuilles — ✅ données Production + Étages conservées |
 | **RESET complet** | Réinitialisation intégrale (efface tout) |
 | **Diagnostic** | Popup : version, feuilles présentes, nb lignes |
+
+---
+
+## Assistant intelligent
+
+L'assistant est accessible via **S.A.T. → 🤖 Ouvrir l'assistant**. Il analyse l'état complet de l'usine en temps réel et affiche des cartes de recommandation dans une sidebar.
+
+| Type | Déclencheur | Bouton d'action |
+|---|---|---|
+| ❌ Erreur config | Machine / Recette / Nb manquants | Voir Production |
+| ⚠️ Avertissement | OC > 150 % ou lignes incomplètes | — |
+| 🔴 Goulot | Ressource consommée > produite | Fix auto (solveur) |
+| ℹ️ Phase | Recettes de la phase suivante disponibles | — |
+| ☢️ Nucléaire | Centrale nucléaire présente | — |
+| ⚡ Énergie | Bilan MW total | — |
+
+---
+
+## Parser de sauvegarde
+
+Accessible via **S.A.T. → 📂 Importer depuis une sauvegarde** — aucun outil en local requis.
+
+### Fonctionnement
+
+1. La sidebar `51_import.html` s'ouvre dans Google Sheets
+2. L'utilisateur sélectionne son fichier `.sav`
+3. `@etothepii/satisfactory-file-parser` est chargé depuis `esm.sh` CDN **dans le navigateur**
+4. Le parsing et l'extraction ont lieu **côté client** — aucun fichier n'est envoyé à Google
+5. Une prévisualisation + rapport de collectibles s'affiche
+6. `SAT_importFromSave(rows, append)` est appelé server-side pour écrire dans Production
+
+> ⚠️ **Prototype** — Le comportement dans le sandbox HtmlService de GAS n'est pas garanti. Si la lib CDN ne charge pas, l'alternative `make parse-save` (Node.js local) génère un CSV importable manuellement.
+
+### Fichiers générés par `make parse-save` (alternative)
+
+```bash
+make parse-save SAV="chemin/vers/save.sav"
+# ou
+node scripts/parse-save.js save.sav [output.csv]
+```
+
+| Fichier | Contenu |
+|---|---|
+| `<nom>_production.csv` | Prêt à importer dans la feuille Production |
+| `<nom>_rapport.txt` | Résumé des collectibles (disques, somersloops, sphères, limaces) |
+
+### Production CSV — colonnes
+
+`Étage, Machine, Recette, Nb, OC%, Pureté, Somersloops`
+
+### Rapport collectibles — indicateurs
+
+| Indicateur | Source dans la save |
+|---|---|
+| Disques durs collectés / total (%) | `Desc_HardDrive_C` en inventaire + `CrashSiteDebris` dans le monde |
+| Sites de crash restants | Objets `CrashSiteDebris*` encore dans le monde |
+| Somersloops slottés | `mNumSomersloopsSlotted` par machine |
+| Somersloops en inventaire | `Desc_AlienArtifact_C` en inventaire |
+| Somersloops dans le monde | `BP_AlienArtifact_C` encore dans le monde |
+| Sphères de Mercer | `Desc_AlienRemnant_C` + `BP_AlienRemnant*` |
+| Limaces vertes (×1 shard) | `Desc_Crystal_C` / `BP_Crystal_C` |
+| Limaces jaunes (×2 shards) | `Desc_Crystal_mk2_C` / `BP_Crystal_mk2_C` |
+| Limaces bleues (×5 shards) | `Desc_Crystal_mk3_C` / `BP_Crystal_mk3_C` |
+| Shards disponibles | Somme pondérée des limaces collectées |
+| Durée de jeu | `playDurationSeconds` dans l'en-tête |
+
+### Intégration dans la GSheet
+
+GAS ne peut pas lire de fichiers locaux côté serveur. Deux approches :
+
+**A — CSV pipeline (recommandé)** : `make parse-save` → upload Drive → import menu S.A.T.
+
+**B — Browser-side (intégré, prototype)** : sidebar `51_import.html` — bundle chargé depuis `esm.sh`, parsing dans le navigateur, `google.script.run` pour écrire directement. Pas d'outil local requis.
 
 ---
 
@@ -215,6 +297,15 @@ La feuille **🏗️ Étages** définit la structure verticale de l'usine.
 | `40_install.gs` | — | `SAT_install()` · validations · protections |
 | `41_triggers.gs` | — | `onEdit()` — recalcul ciblé ligne par ligne |
 | `42_menu.gs` | — | `onOpen()` · menu · actions utilisateur |
+| `50_assistant.gs` | `SAT.Assistant` | Analyse usine, détection goulots, suggestions actionnables |
+| `51_import.gs`    | — | `SAT_openImportSidebar()` · `SAT_importFromSave()` — écriture Production |
+| `51_import.html`  | — | Sidebar : parsing `.sav` browser-side · prévisualisation · rapport collectibles |
+
+### Outils Node.js (`scripts/`)
+
+| Fichier | Rôle |
+|---|---|
+| `parse-save.js` | Parse un `.sav` → CSV Production + rapport collectibles |
 
 ### Principe de chargement
 
@@ -259,16 +350,28 @@ Les données v1.1 restent disponibles — aucune suppression n'est nécessaire.
 ```javascript
 // 00_core_config.gs
 SAT.CFG = {
-  VERSION:      '3.4.2',   // version de l'application
-  GAME_VERSION: '1.1',   // ← changer ici pour une MàJ Satisfactory
+  VERSION:      '3.5.1',   // version de l'application
+  GAME_VERSION: '1.1',     // ← changer ici pour une MàJ Satisfactory
 
   SHEETS: {
     PROD: '🏭 Production',
     ETAG: '🏗️ Étages',
     DASH: '📊 Tableau de bord',
+    OBJ:  '🎯 Objectifs',
     REC:  '📖 Recettes',
     RES:  '💎 Ressources',
     MACH: '⚙️ Machines'
+  },
+
+  // Colonnes Production (1-based)
+  C: {
+    ETAGE: 1, MACHINE: 2, RECIPE: 3,
+    OUT_RATE: 4, IN_RATE: 5,
+    NB: 6, OC: 7, PUR: 8,
+    FLAGS: 9, CAUSE: 10,
+    STD_RATE: 11,  // K — Qt/min à OC=100%
+    MW: 12,        // L — ⚡ MW total
+    SLOOP: 13      // M — Somersloops (0-4)
   },
 
   PURITY: { 'Impur': 0.5, 'Normal': 1.0, 'Pur': 2.0 }
@@ -292,4 +395,4 @@ SAT.CFG = {
 ---
 
 *Source données : [satisfactory.wiki.gg/fr](https://satisfactory.wiki.gg/fr) — mise à jour mars 2026*
-*Dépôt : [github.com/chrysa/satisfactory-automated_calculator](https://github.com/chrysa/satisfactory-automated_calculator)*
+*Version app : v3.5.1 — Dépôt : [github.com/chrysa/satisfactory-automated_calculator](https://github.com/chrysa/satisfactory-automated_calculator)*
