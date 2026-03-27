@@ -335,11 +335,14 @@ function extractProduction(allObjects) {
   const extracted = buildings.map(b => {
     const key     = classKey(b.typePath);
     const machine = MACHINE_MAP[key] || key;
-
     const clockRaw = propVal(b, 'mCurrentPotentialConversion')
                   ?? propVal(b, 'mPendingPotentialConversion')
                   ?? 1.0;
     const oc = Math.round(Number(clockRaw) * 100);
+
+    // Machines éteintes (switch OFF en jeu) → exclues de l'import
+    const isProducing = propVal(b, 'mIsProducing');
+    if (isProducing === false) return null;
 
     const recipeProp = prop(b, 'mCurrentRecipe');
     let recipe = '';
@@ -362,7 +365,7 @@ function extractProduction(allObjects) {
 
     const z     = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
     return { machine, recipe, oc, sloop, purity, z };
-  });
+  }).filter(e => e !== null);
 
   // ── Cluster z-values en étages par proximité ──────────────────────────────
   // Les machines au même étage peuvent avoir des z légèrement différentes.

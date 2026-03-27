@@ -65,6 +65,37 @@ function SAT_importFromSave(rows, append) {
 
     sh.getRange(startRow, 1, data.length, ncols).setValues(data);
 
+    // ── Synchroniser la feuille Étages avec les nouveaux noms d'étages ──────
+    var etagSh = SAT.S.get(cfg.SHEETS.ETAG);
+    if (etagSh) {
+      // Collecter les noms d'étages déjà présents dans la feuille
+      var existingFloors = {};
+      var etagLast = etagSh.getLastRow();
+      if (etagLast >= 2) {
+        etagSh.getRange(2, 1, etagLast - 1, 1).getValues()
+          .forEach(function(r) { if (r[0]) existingFloors[String(r[0]).trim()] = true; });
+      }
+      // Ajouter les étages importés qui n'existent pas encore
+      var newFloors = [];
+      rows.forEach(function(r) {
+        var name = String(r.etage || '').trim();
+        if (name && !existingFloors[name]) {
+          existingFloors[name] = true;
+          newFloors.push(name);
+        }
+      });
+      if (newFloors.length > 0) {
+        var nextRow = etagSh.getLastRow() + 1;
+        var floorData = newFloors.map(function(name, i) {
+          return [name, nextRow - 2 + i, '', ''];
+        });
+        etagSh.getRange(nextRow, 1, floorData.length, 4).setValues(floorData);
+        SAT.Log.ok('SAT_importFromSave: ' + newFloors.length + ' étage(s) ajouté(s) dans la feuille Étages');
+        // Mettre à jour les validations dropdown
+        try { _setupValidations(); } catch(ve) {}
+      }
+    }
+
     // Trigger full recalc to populate D, E, I, J, K, L columns
     SAT_recalcAll();
 

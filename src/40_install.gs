@@ -145,10 +145,7 @@ function SAT_install() {
   } catch(e) {}
 
   Logger.log('=== Installation terminée v' + cfg.VERSION + ' ===\n');
-  ss.toast('Installation SAT v' + cfg.VERSION + ' terminée !', 'S.A.T.', 5);
-
-  // Enregistrer le trigger installable pour l'ouverture auto de l'assistant
-  try { SAT_setupTriggers(); } catch(e) { Logger.log('ERR install triggers: ' + e.message); }
+  ss.toast('Installation SAT v' + cfg.VERSION + ' terminée ! — Active l\'assistant : menu S.A.T. → ⚙️ Activer l\'assistant au démarrage', 'S.A.T.', 10);
 }
 
 /**
