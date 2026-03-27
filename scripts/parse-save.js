@@ -502,27 +502,33 @@ const hdTotal             = crashSitesRemaining + hdCollected;
 const hdPct               = hdTotal > 0 ? Math.round((hdCollected / hdTotal) * 100) : 0;
 
 // Somersloops (BP_WAT1 in-world, Desc_WAT1 in inventory)
-const sloopsSlotted = extracted.reduce((s, e) => s + e.sloop, 0);
-const sloopsWorld   = countInWorld(allObjects, 'BP_WAT1');
-const sloopsInInv   = countInInventories(allObjects, 'Desc_WAT1');
-const sloopsTotal   = sloopsSlotted + sloopsWorld + sloopsInInv;
+const sloopsSlotted    = extracted.reduce((s, e) => s + e.sloop, 0);
+const sloopsWorld      = countInWorld(allObjects, 'BP_WAT1');
+const sloopsInInv      = countInInventories(allObjects, 'Desc_WAT1');
+const sloopsCollected  = sloopsSlotted + sloopsInInv;
+const sloopsTotal      = sloopsCollected + sloopsWorld;
+const sloopsPct        = sloopsTotal > 0 ? Math.round(sloopsCollected / sloopsTotal * 100) : 0;
 
 // Mercer Spheres (BP_WAT2 in-world, Desc_WAT2 in inventory)
 const spheresWorld  = countInWorld(allObjects, 'BP_WAT2');
 const spheresInInv  = countInInventories(allObjects, 'Desc_WAT2');
-const spheresTotal  = spheresWorld + spheresInInv;
+const spheresTotal  = spheresInInv + spheresWorld;
+const spheresPct    = spheresTotal > 0 ? Math.round(spheresInInv / spheresTotal * 100) : 0;
 
 // Power Slugs — 3 tiers (Green ×1 / Yellow ×2 / Blue ×5)
-// Raw slugs still in inventory (may be 0 if all processed to shards)
+// Raw slugs in inventory (0 if all converted to shards already)
 const slugGreenWorld  = countInWorld(allObjects, 'BP_Crystal.BP_Crystal_C');
 const slugYellowWorld = countInWorld(allObjects, 'BP_Crystal_mk2');
 const slugBlueWorld   = countInWorld(allObjects, 'BP_Crystal_mk3');
 const slugGreenInv    = countInInventories(allObjects, 'Desc_Crystal.Desc_Crystal_C');
 const slugYellowInv   = countInInventories(allObjects, 'Desc_Crystal_mk2');
 const slugBlueInv     = countInInventories(allObjects, 'Desc_Crystal_mk3');
-// Shards already processed (Desc_CrystalShard) + those still as raw slugs
+// Shards already processed + equivalent from raw slugs in inventory
 const shardsReady     = countInInventories(allObjects, 'Desc_CrystalShard');
 const shardsAvailable = shardsReady + slugGreenInv * 1 + slugYellowInv * 2 + slugBlueInv * 5;
+const slugRemainingPotential = slugGreenWorld * 1 + slugYellowWorld * 2 + slugBlueWorld * 5;
+const slugMaxShards   = shardsAvailable + slugRemainingPotential;
+const slugPct         = slugMaxShards > 0 ? Math.round(shardsAvailable / slugMaxShards * 100) : 0;
 
 // Format helpers
 const pad   = (n, w) => String(n).padStart(w, ' ');
@@ -539,25 +545,26 @@ const rapport = [
   '',
   '── COLLECTIBLES ─────────────────────────────────────',
   '',
-  line('Disques durs collectés :', `${hdCollected} / ${hdTotal}  (${hdPct}%)`),
+  line('Disques durs :', `${hdCollected} / ${hdTotal}  (${hdPct}%)`),
   line('  Sites de crash restants :', String(crashSitesRemaining)),
   '',
-  line('Somersloops :', `${sloopsTotal} au total`),
+  line('Somersloops :', `${sloopsCollected} / ${sloopsTotal}  (${sloopsPct}%)`),
   line('  Slottés dans des machines :', String(sloopsSlotted)),
   line('  En inventaire / stockage :', String(sloopsInInv)),
   line('  Encore dans le monde :', String(sloopsWorld)),
   '',
-  line('Sphères de Mercer :', `${spheresTotal} au total`),
-  line('  En inventaire / stockage :', String(spheresInInv)),
+  line('Sphères de Mercer :', `${spheresInInv} / ${spheresTotal}  (${spheresPct}%)`),
   line('  Encore dans le monde :', String(spheresWorld)),
   '',
   '── LIMACES D\'ÉNERGIE ────────────────────────────────',
   '',
-  line('Vertes  (×1 shard) :', `${slugGreenInv} collectées  +  ${slugGreenWorld} dans le monde`),
-  line('Jaunes  (×2 shards) :', `${slugYellowInv} collectées  +  ${slugYellowWorld} dans le monde`),
-  line('Bleues  (×5 shards) :', `${slugBlueInv} collectées  +  ${slugBlueWorld} dans le monde`),
-  line('Shards transformés :', String(shardsReady)),
-  line('Shards disponibles (total) :', String(shardsAvailable)),
+  line('Shards disponibles :', `${shardsAvailable} / ${slugMaxShards} max  (${slugPct}%)`),
+  line('  Shards transformés :', String(shardsReady)),
+  slugGreenInv + slugYellowInv + slugBlueInv > 0
+    ? line('  Limaces brutes (inv) :', `🟢${slugGreenInv}  🟡${slugYellowInv}  🔵${slugBlueInv}`)
+    : line('  Limaces brutes (inv) :', 'aucune (toutes transformées)'),
+  line('Encore dans le monde :', `🟢${slugGreenWorld}  🟡${slugYellowWorld}  🔵${slugBlueWorld}`),
+  line('  Potentiel restant :', `+${slugRemainingPotential} shards`),
   '',
   '══════════════════════════════════════════════════════',
 ].join('\n');

@@ -79,23 +79,98 @@
       font-weight: 600;
       margin-left: 4px;
     }
+    /* ── Rapport collectibles ───────────────────────────────── */
+    #rapport { margin-bottom: 6px; }
+    .rpt-block { margin-bottom: 8px; }
+    .rpt-title {
+      font-weight: 700; font-size: 12px; color: #202124;
+      border-bottom: 1px solid #e8eaed;
+      padding-bottom: 4px; margin-bottom: 5px;
+    }
+    .rpt-row {
+      display: flex; justify-content: space-between;
+      align-items: center; padding: 2px 0; font-size: 11px;
+    }
+    .rpt-label { color: #5f6368; }
+    .rpt-value { font-weight: 600; }
+    .collect-card {
+      background: #f8f9fa; border: 1px solid #e8eaed;
+      border-radius: 6px; padding: 6px 8px; margin: 4px 0;
+    }
+    .collect-head {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 3px;
+    }
+    .collect-name { font-size: 12px; font-weight: 600; color: #202124; }
+    .pct-badge {
+      font-size: 10.5px; font-weight: 700;
+      padding: 1px 6px; border-radius: 10px;
+    }
+    .pct-high { background: #e6f4ea; color: #137333; }
+    .pct-med  { background: #fef7e0; color: #b06000; }
+    .pct-low  { background: #fce8e6; color: #c5221f; }
+    .collect-detail { font-size: 11px; color: #5f6368; margin-bottom: 4px; }
+    .collect-bar { height: 4px; background: #e8eaed; border-radius: 2px; overflow: hidden; margin-top: 2px; }
+    .collect-fill { height: 100%; border-radius: 2px; }
+    .collect-sub { font-size: 10.5px; color: #5f6368; margin-top: 3px; }
+    .slug-tiers { display: flex; gap: 4px; margin-top: 5px; }
+    .slug-tier {
+      flex: 1; background: #fff; border: 1px solid #e8eaed;
+      border-radius: 4px; padding: 3px 4px; text-align: center;
+      font-size: 11px; line-height: 1.4;
+    }
+    /* ── Upload zone ────────────────────────────────────────── */
+    label.upload-area {
+      display: block;
+      border: 2px dashed #dadce0;
+      border-radius: 8px;
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      color: #5f6368;
+      font-size: 12px;
+      margin-bottom: 8px;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    label.upload-area:hover {
+      border-color: #1a73e8;
+      background: #f0f4ff;
+      color: #1a73e8;
+    }
+    label.upload-area.has-file {
+      border-color: #34a853;
+      background: #f0f9f4;
+      color: #137333;
+    }
+    label.upload-area input[type=file] { display: none; }
+    .upload-icon { font-size: 20px; margin-bottom: 4px; }
+    /* ── Action buttons ─────────────────────────────────────── */
+    .action-bar { display: flex; gap: 6px; margin-bottom: 6px; }
+    .action-bar .btn { flex: 1; margin: 0; text-align: center; }
   </style>
 </head>
 <body>
 
 <h3>🎮 Importer une sauvegarde</h3>
-<p class="hint">Le fichier est analysé dans ton navigateur — aucune donnée n'est envoyée à Google.</p>
+<p class="hint">Analysé dans ton navigateur — aucune donnée envoyée à Google.</p>
 
-<input type="file" id="fileInput" accept=".sav">
-<div id="status">Sélectionne un fichier <code>.sav</code></div>
+<label class="upload-area" id="uploadLabel" for="fileInput">
+  <div class="upload-icon">📂</div>
+  <span id="uploadText">Sélectionne un fichier <code>.sav</code></span>
+  <input type="file" id="fileInput" accept=".sav">
+</label>
+<div id="status"></div>
 <progress id="prog" max="100" value="0"></progress>
 
 <div id="actions">
   <div id="preview"></div>
   <hr class="sep">
-  <div id="rapport" style="font-size:11px; color:#5f6368; margin-bottom:4px;"></div>
-  <button class="btn btn-primary"   id="btnAppend"  onclick="doImport(true)">➕ Ajouter à Production</button>
-  <button class="btn btn-danger"    id="btnReplace" onclick="doImport(false)">🔄 Remplacer Production</button>
+  <div class="action-bar">
+    <button class="btn btn-primary"   id="btnAppend"  onclick="doImport(true)">&#x2795;&#xFE0F; Ajouter</button>
+    <button class="btn btn-danger"    id="btnReplace" onclick="doImport(false)">&#x1F504; Remplacer</button>
+  </div>
+  <div id="rapport"></div>
 </div>
 
 <script type="module">
@@ -278,9 +353,16 @@ let collectibles  = null;
 
 // ─── File input ───────────────────────────────────────────────────────────────
 
+const elUploadLabel = document.getElementById('uploadLabel');
+const elUploadText  = document.getElementById('uploadText');
+
 document.getElementById('fileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
+  // Update upload zone appearance
+  elUploadLabel.classList.add('has-file');
+  elUploadText.textContent = file.name;
 
   elActions.style.display = 'none';
   elPreview.innerHTML = '';
@@ -321,6 +403,8 @@ document.getElementById('fileInput').addEventListener('change', async (e) => {
 
   } catch (err) {
     setProg(0);
+    elUploadLabel.classList.remove('has-file');
+    elUploadText.textContent = 'Sélectionne un fichier .sav';
     setStatus('❌ ' + err.message, 'err');
     console.error(err);
   }
@@ -541,19 +625,106 @@ function renderPreview(rows) {
 
 function renderRapport(c) {
   if (!c) return;
-  const sloopsTotal = c.sloops.slotted + c.sloops.inv + c.sloops.world;
+
+  // ── Percentages ──────────────────────────────────────────────────────────
+  const sloopsCollected = c.sloops.slotted + c.sloops.inv;
+  const sloopsTotal     = sloopsCollected + c.sloops.world;
+  const sloopsPct       = sloopsTotal > 0 ? Math.round(sloopsCollected / sloopsTotal * 100) : 0;
+
   const spheresTotal = c.spheres.inv + c.spheres.world;
+  const spheresPct   = spheresTotal > 0 ? Math.round(c.spheres.inv / spheresTotal * 100) : 0;
+
+  // Shards: current (already collected / converted) vs max (if all world slugs picked)
+  const slugRemainingPotential = c.slugs.gW * 1 + c.slugs.yW * 2 + c.slugs.bW * 5;
+  const slugMaxShards          = c.slugs.shards + slugRemainingPotential;
+  const slugPct                = slugMaxShards > 0 ? Math.round(c.slugs.shards / slugMaxShards * 100) : 0;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function pctBadge(pct) {
+    const cls = pct >= 75 ? 'pct-high' : pct >= 40 ? 'pct-med' : 'pct-low';
+    return `<span class="pct-badge ${cls}">${pct}%</span>`;
+  }
+  function progressBar(pct) {
+    const color = pct >= 75 ? '#34a853' : pct >= 40 ? '#fbbc04' : '#ea4335';
+    return `<div class="collect-bar"><div class="collect-fill" style="width:${pct}%;background:${color}"></div></div>`;
+  }
+  function collectCard(icon, name, pct, detail, sub) {
+    return `<div class="collect-card">
+      <div class="collect-head">
+        <span class="collect-name">${icon} ${name}</span>
+        ${pctBadge(pct)}
+      </div>
+      <div class="collect-detail">${detail}</div>
+      ${progressBar(pct)}
+      ${sub ? `<div class="collect-sub">${sub}</div>` : ''}
+    </div>`;
+  }
+
+  // ── Hard drives ───────────────────────────────────────────────────────────
+  const hdCard = collectCard(
+    '💾', 'Disques durs',
+    c.hd.pct,
+    `<b>${c.hd.collected}</b> / ${c.hd.total} collectés`,
+    c.hd.sites > 0 ? `${c.hd.sites} site(s) encore disponible(s)` : '✅ Tous les sites fouillés'
+  );
+
+  // ── Somersloops ───────────────────────────────────────────────────────────
+  const sloopSub = [];
+  if (c.sloops.slotted > 0) sloopSub.push(`${c.sloops.slotted} slottés dans des machines`);
+  if (c.sloops.inv > 0)     sloopSub.push(`${c.sloops.inv} en stock`);
+  if (c.sloops.world > 0)   sloopSub.push(`${c.sloops.world} encore dans le monde`);
+  const sloopCard = collectCard(
+    '🔮', 'Somersloops',
+    sloopsPct,
+    `<b>${sloopsCollected}</b> / ${sloopsTotal} collectés`,
+    sloopSub.join(' · ')
+  );
+
+  // ── Mercer Spheres ────────────────────────────────────────────────────────
+  const sphereSub = c.spheres.world > 0
+    ? `${c.spheres.world} encore dans le monde`
+    : '✅ Toutes collectées';
+  const sphereCard = collectCard(
+    '🌀', 'Sphères de Mercer',
+    spheresPct,
+    `<b>${c.spheres.inv}</b> / ${spheresTotal} collectées`,
+    sphereSub
+  );
+
+  // ── Energy Slugs ──────────────────────────────────────────────────────────
+  const rawInHand = c.slugs.gI + c.slugs.yI + c.slugs.bI;
+  const slugDetailLine = rawInHand > 0
+    ? `<b>${c.slugs.shards}</b> shards · ${rawInHand} limace(s) brute(s) en inventaire`
+    : `<b>${c.slugs.shards}</b> shards · +${slugRemainingPotential} potentiels restants`;
+  const slugBarColor = slugPct >= 75 ? '#34a853' : slugPct >= 40 ? '#fbbc04' : '#ea4335';
+  const slugPctCls   = slugPct >= 75 ? 'pct-high' : slugPct >= 40 ? 'pct-med' : 'pct-low';
+  const slugCard = `<div class="collect-card">
+    <div class="collect-head">
+      <span class="collect-name">⚡ Limaces d'énergie</span>
+      <span class="pct-badge ${slugPctCls}">${slugPct}%</span>
+    </div>
+    <div class="collect-detail">${slugDetailLine}</div>
+    <div class="collect-bar"><div class="collect-fill" style="width:${slugPct}%;background:${slugBarColor}"></div></div>
+    <div class="slug-tiers">
+      <div class="slug-tier">🟢 <b>${esc(String(c.slugs.gW))}</b><span class="slug-world">dans le monde</span></div>
+      <div class="slug-tier">🟡 <b>${esc(String(c.slugs.yW))}</b><span class="slug-world">dans le monde</span></div>
+      <div class="slug-tier">🔵 <b>${esc(String(c.slugs.bW))}</b><span class="slug-world">dans le monde</span></div>
+    </div>
+  </div>`;
+
+  // ── Render ────────────────────────────────────────────────────────────────
   elRapport.innerHTML = `
-    <strong>📊 Rapport de sauvegarde</strong><br>
-    ⏱ Durée : <b>${esc(c.playtime)}</b><br>
-    💾 Disques durs : <b>${c.hd.collected} / ${c.hd.total}</b> (${c.hd.pct}%)
-      — ${c.hd.sites} site(s) restant(s)<br>
-    🔮 Somersloops : <b>${sloopsTotal}</b>
-      (${c.sloops.slotted} slottés · ${c.sloops.inv} inv · ${c.sloops.world} monde)<br>
-    🌀 Sphères de Mercer : <b>${spheresTotal}</b>
-      (${c.spheres.inv} inv · ${c.spheres.world} monde)<br>
-    ⚡ Limaces → shards dispo : <b>${c.slugs.shards}</b>
-      (transformés : ${c.slugs.shardsReady} · bruts : 🟢${c.slugs.gI}+${c.slugs.gW} 🟡${c.slugs.yI}+${c.slugs.yW} 🔵${c.slugs.bI}+${c.slugs.bW})
+    <div class="rpt-block">
+      <div class="rpt-title">📊 Rapport de sauvegarde</div>
+      <div class="rpt-row">
+        <span class="rpt-label">⏱ Temps de jeu</span>
+        <span class="rpt-value">${esc(c.playtime)}</span>
+      </div>
+    </div>
+    ${hdCard}
+    ${sloopCard}
+    ${sphereCard}
+    ${slugCard}
   `;
 }
 
