@@ -9,6 +9,11 @@
 #   feat:          → minor bump  (3.5.x → 3.6.0)
 #   fix: / chore:  → patch bump  (3.5.5 → 3.5.6)
 #   feat!: or BREAKING CHANGE in footer → major bump
+#
+# next-version: fallback used when no git tag exists yet.
+# Once a vX.Y.Z tag is present, GitVersion ignores this value.
+
+next-version: '3.5.5'
 
 mode: Mainline
 
