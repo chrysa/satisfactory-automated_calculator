@@ -6,6 +6,12 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 ## Unreleased
 
 
+### Bug Fixes
+
+- **dashboard**: Move chart buffer from row 66 to row 500, wipe rows 20-600 on refresh ([`389a488`](389a4885d0e2ef11f9999e2dc23d2a4558f8eb17))
+## [3.6.0-30] — 2026-03-28
+
+
 ### Features
 
 - Fix 6 issues — production fill, floor detection, elec sub-lines, charts, changelog, parasitic data ([`56c8a10`](56c8a10373365e311ed68be2b8506c4ab7d96065))
