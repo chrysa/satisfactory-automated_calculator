@@ -24,6 +24,11 @@ SAT.Engine = {
     var c       = cfg.C;
     var idx     = SAT.getRecipeIndex();
     var machIdx = SAT.getMachineIndex();
+    // Build category index for per-category power tracking
+    var catIdx  = {};
+    if (SAT.CFG.MACHINES) {
+      SAT.CFG.MACHINES.forEach(function(m) { catIdx[m[0]] = m[4] || ''; });
+    }
     var rows    = [];
 
     data.forEach(function(r, i) {
@@ -88,6 +93,7 @@ SAT.Engine = {
         oc:          oc,
         sloop:       sloop,
         purity:      pur,
+        cat:         catIdx[machineName] || '',
         rec:         rec
       });
     });
@@ -253,8 +259,10 @@ SAT.Engine = {
     var etageSet  = {};
     var produced  = {}; // ressource → Qt/min produite totale
     var consumed  = {}; // ressource → Qt/min consommée totale
-    var errors    = 0;
-    var todo      = 0;
+    var errors        = 0;
+    var todo          = 0;
+    var mwByCategory  = {};
+    var energyNb      = 0;
 
     rows.forEach(function(r) {
       var nb = r.nb || 0;
@@ -272,6 +280,11 @@ SAT.Engine = {
 
       if (!r.machine || !r.recipe) errors++;
       if (!r.nb) todo++;
+      // Track per-category power draw
+      var mwCur = r.totalMW || 0;
+      var cat   = r.cat || '';
+      if (cat) { mwByCategory[cat] = (mwByCategory[cat] || 0) + mwCur; }
+      if (cat === '\u00c9nergie') energyNb += (r.nb || 0);
     });
 
     // Top 8 ressources produites (Qt/min décroissante)
@@ -307,6 +320,8 @@ SAT.Engine = {
       maxMW:          Math.round(maxMW * Math.pow(2.5, 1.321) * 10) / 10,
       topResources:   topResources,
       underProduced:  underProduced,
+      mwByCategory:   mwByCategory,
+      energyNb:       energyNb,
       _rows:          rows
     };
   }

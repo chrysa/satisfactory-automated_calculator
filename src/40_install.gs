@@ -89,17 +89,17 @@ function SAT_install() {
   // Write back Production user columns (A,B,C,F,G,H) and Étages rows.
   var _newProdSh = ss.getSheetByName(cfg.SHEETS.PROD);
   if (_backupProd && _backupProd.length > 0 && _newProdSh) {
-    _backupProd.forEach(function(row, i) {
-      var r = cfg.DAT_ROW + i;
-      _newProdSh.getRange(r, c.ETAGE,   1, 1).setValue(row[0]);
-      _newProdSh.getRange(r, c.MACHINE, 1, 1).setValue(row[1]);
-      _newProdSh.getRange(r, c.RECIPE,  1, 1).setValue(row[2]);
-      _newProdSh.getRange(r, c.NB,      1, 1).setValue(row[3]);
-      _newProdSh.getRange(r, c.OC,      1, 1).setValue(row[4]);
-      _newProdSh.getRange(r, c.PUR,     1, 1).setValue(row[5]);
-      if (row[6] !== undefined && row[6] !== '') _newProdSh.getRange(r, c.SLOOP, 1, 1).setValue(row[6]);
-    });
-    Logger.log('Restored ' + _backupProd.length + ' production rows');
+    var _nRestore = _backupProd.length;
+    // Batch write A-C (Etage, Machine, Recipe) — contiguous cols 1-3
+    _newProdSh.getRange(cfg.DAT_ROW, c.ETAGE, _nRestore, 3).setValues(
+      _backupProd.map(function(row) { return [row[0], row[1], row[2]]; }));
+    // Batch write F-H (Nb, OC, Purity) — contiguous cols 6-8
+    _newProdSh.getRange(cfg.DAT_ROW, c.NB, _nRestore, 3).setValues(
+      _backupProd.map(function(row) { return [row[3], row[4], row[5]]; }));
+    // Batch write M (Somersloops)
+    _newProdSh.getRange(cfg.DAT_ROW, c.SLOOP, _nRestore, 1).setValues(
+      _backupProd.map(function(row) { return [row[6] || 0]; }));
+    Logger.log('Restored ' + _nRestore + ' production rows (batched)');
   }
   var _newEtagSh = ss.getSheetByName(cfg.SHEETS.ETAG);
   if (_backupEtag && _backupEtag.length > 0 && _newEtagSh) {
@@ -143,6 +143,9 @@ function SAT_install() {
   try {
     PropertiesService.getDocumentProperties().setProperty('SAT_VERSION', cfg.VERSION);
   } catch(e) {}
+
+  // Recalculate auto-computed columns (D/E/I-L) now that all user data is restored
+  try { SAT_recalcAll(); } catch(e) { Logger.log('WARN recalcAll after install: ' + e.message); }
 
   Logger.log('=== Installation terminée v' + cfg.VERSION + ' ===\n');
   ss.toast('Installation SAT v' + cfg.VERSION + ' terminée ! — Active l\'assistant : menu S.A.T. → ⚙️ Activer l\'assistant au démarrage', 'S.A.T.', 10);
@@ -279,27 +282,48 @@ function _installDashboard() {
   sh.getRange(12, 1).setValue('  \u26A1 \u00C9lectricit\u00e9');
   sh.setRowHeight(12, 28);
 
-  var elecLabels = [
-    'Consommation totale (MW)',
-    'Production max \u00e0 250% OC (MW)',
-    'Derni\u00e8re mise \u00e0 jour'
+  // Row 13: total consumption (main electricity line)
+  sh.getRange(13, 1).setValue('Consommation totale (MW)')
+    .setBackground('#FFF3E0').setFontSize(10).setFontWeight('bold');
+  sh.getRange(13, 2).setBackground('#FFFFFF').setFontSize(11)
+    .setFontWeight('bold').setFontColor('#E65100').setHorizontalAlignment('center');
+  sh.setRowHeight(13, 24);
+
+  // Rows 14-17: per-category sub-lines (Extraction/Fusion | Prod/Raff/Cond | Avancé | Énergie)
+  var elecSubLabels = [
+    '  \u21b3 Extraction / Fusion (MW)',
+    '  \u21b3 Prod. / Raffinage / Cond. (MW)',
+    '  \u21b3 Avanc\u00e9 (MW)',
+    '  \u21b3 \u00c9nergie / Nucl\u00e9aire (machines)'
   ];
-  elecLabels.forEach(function(lbl, i) {
-    sh.getRange(13 + i, 1).setValue(lbl)
-      .setBackground('#FFF3E0').setFontSize(10).setFontWeight('bold');
-    sh.getRange(13 + i, 2).setBackground('#FFFFFF').setFontSize(11)
-      .setFontWeight('bold').setFontColor('#E65100').setHorizontalAlignment('center');
-    sh.setRowHeight(13 + i, 24);
+  elecSubLabels.forEach(function(lbl, i) {
+    sh.getRange(14 + i, 1).setValue(lbl)
+      .setBackground('#FFF8F0').setFontSize(9).setFontColor('#BF360C');
+    sh.getRange(14 + i, 2).setBackground('#FFFDE7').setFontSize(10)
+      .setFontColor('#E65100').setHorizontalAlignment('center');
+    sh.setRowHeight(14 + i, 20);
   });
-  sh.getRange(13, 1, elecLabels.length, 2)
+
+  // Rows 18-19: max OC + last-update
+  sh.getRange(18, 1).setValue('Production max \u00e0 250% OC (MW)')
+    .setBackground('#FFF3E0').setFontSize(10).setFontWeight('bold');
+  sh.getRange(18, 2).setBackground('#FFFFFF').setFontSize(11)
+    .setFontWeight('bold').setFontColor('#E65100').setHorizontalAlignment('center');
+  sh.setRowHeight(18, 24);
+  sh.getRange(19, 1).setValue('Derni\u00e8re mise \u00e0 jour')
+    .setBackground('#FFF3E0').setFontSize(10).setFontWeight('bold');
+  sh.getRange(19, 2).setBackground('#FFFFFF').setFontSize(10)
+    .setFontColor('#9E9E9E').setHorizontalAlignment('center');
+  sh.setRowHeight(19, 24);
+  sh.getRange(13, 1, 7, 2)
     .setBorder(true, true, true, true, true, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
 
-  // ── Section OBJECTIFS SOLVEUR (A16–B20) ────────────────────────────────────
-  sh.setRowHeight(16, 6);
-  sh.getRange(16, 1, 1, 4).setBackground('#EDE7F6');
-  secStyle(sh.getRange(17, 1, 1, 4), '#4A148C', '#FFFFFF');
-  sh.getRange(17, 1).setValue('  \uD83C\uDFAF Objectifs solveur');
-  sh.setRowHeight(17, 26);
+  // ── Section OBJECTIFS SOLVEUR (A20–B25) ────────────────────────────────────
+  sh.setRowHeight(20, 6);
+  sh.getRange(20, 1, 1, 4).setBackground('#EDE7F6');
+  secStyle(sh.getRange(21, 1, 1, 4), '#4A148C', '#FFFFFF');
+  sh.getRange(21, 1).setValue('  \uD83C\uDFAF Objectifs solveur');
+  sh.setRowHeight(21, 26);
   var objLabels = [
     'Objectifs d\u00e9finis',
     'Actifs (\u25BA)',
@@ -307,13 +331,13 @@ function _installDashboard() {
     'Phase dominante'
   ];
   objLabels.forEach(function(lbl, i) {
-    sh.getRange(18 + i, 1).setValue(lbl)
+    sh.getRange(22 + i, 1).setValue(lbl)
       .setBackground('#F3E5F5').setFontSize(10).setFontWeight('bold');
-    sh.getRange(18 + i, 2).setBackground('#FFFFFF').setFontSize(11)
+    sh.getRange(22 + i, 2).setBackground('#FFFFFF').setFontSize(11)
       .setFontWeight('bold').setFontColor('#6A1B9A').setHorizontalAlignment('center');
-    sh.setRowHeight(18 + i, 24);
+    sh.setRowHeight(22 + i, 24);
   });
-  sh.getRange(17, 1, objLabels.length + 1, 2)
+  sh.getRange(21, 1, objLabels.length + 1, 2)
     .setBorder(true, true, true, true, true, true, '#CE93D8', SpreadsheetApp.BorderStyle.SOLID);
 
   // ── Section TOP RESSOURCES (E4:H12) ────────────────────────────────────────
@@ -342,26 +366,26 @@ function _installDashboard() {
   sh.getRange(15, 5, 1, 4).setFontWeight('bold').setFontColor('#C62828').setFontSize(9)
     .setBackground('#FFEBEE');
 
-  // ── Graphique placeholder col H (position fixe) — créé par _installCharts
-  // Row 22 is the last bottleneck data row — give it normal height (not collapsed)
-  sh.setRowHeight(22, 24);
+  // Row 26 is the last bottleneck data row on the right side
+  sh.setRowHeight(26, 24);
 
-  // Charts zone (rows 23-36)
-  // Charts anchored at row 25 (left: col A, right: col E) by _installDashboardCharts.
-  // 12 rows x 22 px = 264 px — enough to contain 240-px-tall charts without overflow.
-  sh.setRowHeight(23, 8);
-  sh.getRange(23, 1, 1, 8).setBackground('#E8EAF6');
-  secStyle(sh.getRange(24, 1, 1, 8), '#283593', '#FFFFFF');
-  sh.getRange(24, 1).setValue('  \uD83D\uDCC8 Charts');
-  sh.setRowHeight(24, 28);
-  for (var cr = 25; cr <= 36; cr++) { sh.setRowHeight(cr, 22); }
+  // Charts zone (rows 27-52) — 2 rows of 2 side-by-side charts:
+  //   Row 1 anchored at row 29: machines/stage (L) + top-resources (R)
+  //   Row 2 anchored at row 41: power/category (L) + bottleneck deficit (R)
+  // Each chart row = 12 rows x 22 px = 264 px, enough for 240-px-tall charts.
+  sh.setRowHeight(27, 8);
+  sh.getRange(27, 1, 1, 8).setBackground('#E8EAF6');
+  secStyle(sh.getRange(28, 1, 1, 8), '#283593', '#FFFFFF');
+  sh.getRange(28, 1).setValue('  \uD83D\uDCC8 Charts');
+  sh.setRowHeight(28, 28);
+  for (var cr = 29; cr <= 52; cr++) { sh.setRowHeight(cr, 22); }
 
-  // Quick start guide (rows 37-43)
-  sh.setRowHeight(37, 8);
-  sh.getRange(37, 1, 1, 8).setBackground('#E3F2FD');
-  secStyle(sh.getRange(38, 1, 1, 8), '#37474F', '#FFFFFF');
-  sh.getRange(38, 1).setValue('  \uD83D\uDCA1 Quick start');
-  sh.setRowHeight(38, 28);
+  // Quick start guide (rows 53-59)
+  sh.setRowHeight(53, 8);
+  sh.getRange(53, 1, 1, 8).setBackground('#E3F2FD');
+  secStyle(sh.getRange(54, 1, 1, 8), '#37474F', '#FFFFFF');
+  sh.getRange(54, 1).setValue('  \uD83D\uDCA1 Quick start');
+  sh.setRowHeight(54, 28);
 
   var tips = [
     ['1.', 'Fill in Stage, Machine, Recipe, Qty, OC% in the Production sheet.'],
@@ -372,58 +396,15 @@ function _installDashboard() {
   ];
   // Merge B-H for each tip so text spans full dashboard width
   tips.forEach(function(tip, i) {
-    sh.getRange(39 + i, 1).setValue(tip[0])
+    sh.getRange(55 + i, 1).setValue(tip[0])
       .setFontWeight('bold').setFontColor('#546E7A').setHorizontalAlignment('center');
-    sh.getRange(39 + i, 2, 1, 7).merge().setValue(tip[1])
+    sh.getRange(55 + i, 2, 1, 7).merge().setValue(tip[1])
       .setFontColor('#37474F').setFontSize(10).setWrap(true);
-    sh.setRowHeight(39 + i, 24);
+    sh.setRowHeight(55 + i, 24);
   });
-
-  // Changelog (rows 45+)
-  sh.setRowHeight(44, 8);
-  sh.getRange(44, 1, 1, 8).setBackground('#FFF3E0');
-  var clRow = 45;
-  secStyle(sh.getRange(clRow, 1, 1, 8), '#BF360C', '#FFFFFF');
-  sh.getRange(clRow, 1).setValue('  CHANGELOG');
-  sh.setRowHeight(clRow, 28);
-
-  var changelog = [
-    ['v' + cfg.VERSION, '27 Mar 2026',
-      '\u2022 Smart Assistant sidebar: bottleneck detection, one-click solver fix, OC normalizer.\n' +
-      '\u2022 Assistant: phase progression coaching, nuclear waste alert, surplus detection.\n' +
-      '\u2022 CI: release job auto-creates GitHub release on push to main.'],
-    ['v3.5.0', '22 Mar 2026',
-      '\u2022 Columns K (Qt/min STD) and L (\u26A1 MW): standard rate + power draw per line.\n' +
-      '\u2022 Dashboard: electricity section, bottlenecks, top resources, permanent charts.\n' +
-      '\u2022 Archive & migrate: snapshot a factory before a game version update.\n' +
-      '\u2022 Stage size calculator with configurable machine clearance margin.\n' +
-      '\u2022 Column merges for tips/changelog. Auto bump-version before each push.'],
-    ['v3.3.1', '22 Mar 2026',
-      '\u2022 Soft-update rebuilds Dashboard + validations on version change.\n' +
-      '\u2022 Duplicate sheet dedup on install. Fixed #ERROR via setValue.'],
-    ['v3.3', 'Mar 2026',
-      '\u2022 Cleared row removes auto-computed columns.\n' +
-      '\u2022 New row pre-fills OC=100 and Purity=Normal.\n' +
-      '\u2022 Purity flag only shown for extractors.'],
-    ['v3.2', '16\u201321 Mar 2026',
-      '\u2022 Full rewrite \u2014 8 modules, Satisfactory 1.1 data (FR names).\n' +
-      '\u2022 Fixed extractor purity, auto machine fill, Mk.5 flag.'],
-    ['v3.1', 'Jan 2026', '\u2022 Per-row targeted recalc (onEdit optimised).'],
-    ['v3.0', 'Nov 2025', '\u2022 Migrated to SAT.* namespace architecture.']
-  ];
-  // Per-row: merge C-H so text spans cols 3-8 (col C alone is 20px — far too narrow)
-  changelog.forEach(function(r, i) {
-    sh.getRange(clRow + 1 + i, 1).setValue(r[0])
-      .setFontWeight('bold').setFontColor('#E65100')
-      .setHorizontalAlignment('center').setVerticalAlignment('top');
-    sh.getRange(clRow + 1 + i, 2).setValue(r[1])
-      .setFontColor('#757575').setFontStyle('italic').setFontSize(10).setVerticalAlignment('top');
-    sh.getRange(clRow + 1 + i, 3, 1, 6).merge().setValue(r[2])
-      .setFontColor('#424242').setFontSize(10).setWrap(true).setVerticalAlignment('top');
-    sh.setRowHeight(clRow + 1 + i, 80);
-  });
-  sh.getRange(clRow, 1, changelog.length + 1, 8)
-    .setBorder(true, true, true, true, false, true, '#FFE0B2', SpreadsheetApp.BorderStyle.SOLID);
+  // Final separator (changelog moved to S.A.T. menu)
+  sh.setRowHeight(60, 8);
+  sh.getRange(60, 1, 1, 8).setBackground('#E3F2FD');
 
   // Column widths
   sh.setColumnWidth(1, 210);  // A - label
@@ -460,36 +441,59 @@ function _installDashboardCharts(sh) {
   // Remove existing charts
   sh.getCharts().forEach(function(c) { try { sh.removeChart(c); } catch(e) {} });
 
-  // Hidden data buffer at row 50 — does not interfere with visible rows 1-46
-  var buf = 50;
-  sh.getRange(buf, 6, 1, 2).setValues([['Stage', 'Machines']]);
-  sh.getRange(buf, 8, 1, 2).setValues([['Resource', 'Qt/min']]);
+  var buf = 66; // hidden data buffer row (well below visible content ~row 60)
+  // Initialize buffer headers; data is filled by _refreshDashboardCharts on each recalc
+  sh.getRange(buf, 6,  1, 2).setValues([['Stage',    'Machines']]);
+  sh.getRange(buf, 8,  1, 2).setValues([['Resource', 'Qt/min']]);
+  sh.getRange(buf, 10, 1, 2).setValues([['Category', 'MW']]);
+  sh.getRange(buf, 12, 1, 2).setValues([['Resource', 'Deficit']]);
 
-  // Chart 1: machines by stage — anchored at A25 (left half of chart zone)
-  var chart1 = sh.newChart()
-    .setChartType(Charts.ChartType.BAR)
+  // Chart 1: machines by stage (COLUMN) — anchored row 1 left
+  sh.insertChart(sh.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
     .addRange(sh.getRange(buf, 6, 2, 2))
-    .setPosition(25, 1, 4, 4)
-    .setOption('title', 'Machines by stage')
+    .setPosition(29, 1, 4, 4)
+    .setOption('title', 'Machines par \u00e9tage')
     .setOption('width', 360).setOption('height', 240)
     .setOption('legend', { position: 'none' })
-    .setOption('hAxis', { title: 'Count', minValue: 0 })
     .setOption('backgroundColor', '#F3E5F5')
-    .build();
-  sh.insertChart(chart1);
+    .setOption('chartArea', { width: '80%', height: '65%' })
+    .build());
 
-  // Chart 2: top produced resources — anchored at E25 (right half of chart zone)
-  var chart2 = sh.newChart()
+  // Chart 2: top produced resources (BAR horizontal) — anchored row 1 right
+  sh.insertChart(sh.newChart()
     .setChartType(Charts.ChartType.BAR)
     .addRange(sh.getRange(buf, 8, 2, 2))
-    .setPosition(25, 5, 4, 4)
+    .setPosition(29, 5, 4, 4)
     .setOption('title', 'Top production (Qt/min)')
     .setOption('width', 360).setOption('height', 240)
     .setOption('legend', { position: 'none' })
-    .setOption('hAxis', { title: 'Qt/min', minValue: 0 })
     .setOption('backgroundColor', '#E8F5E9')
-    .build();
-  sh.insertChart(chart2);
+    .setOption('chartArea', { width: '65%', height: '75%' })
+    .build());
+
+  // Chart 3: power by machine category (PIE) — anchored row 2 left
+  sh.insertChart(sh.newChart()
+    .setChartType(Charts.ChartType.PIE)
+    .addRange(sh.getRange(buf, 10, 2, 2))
+    .setPosition(41, 1, 4, 4)
+    .setOption('title', 'Conso. \u00e9lectrique par cat\u00e9gorie (MW)')
+    .setOption('width', 360).setOption('height', 240)
+    .setOption('backgroundColor', '#FFF8E1')
+    .setOption('chartArea', { width: '55%', height: '75%' })
+    .build());
+
+  // Chart 4: top bottleneck deficits (BAR horizontal) — anchored row 2 right
+  sh.insertChart(sh.newChart()
+    .setChartType(Charts.ChartType.BAR)
+    .addRange(sh.getRange(buf, 12, 2, 2))
+    .setPosition(41, 5, 4, 4)
+    .setOption('title', 'Goulots \u2014 d\u00e9ficit /min')
+    .setOption('width', 360).setOption('height', 240)
+    .setOption('legend', { position: 'none' })
+    .setOption('backgroundColor', '#FFEBEE')
+    .setOption('chartArea', { width: '65%', height: '75%' })
+    .build());
 }
 
 function _installProduction() {
@@ -792,7 +796,7 @@ function _installMachines() {
 // La validation dropdown de la colonne A (Production) pointe vers cette feuille.
 
 // ── Colonnes feuille Étages ────────────────────────────────────────────────
-// A(1)   B(2)    C(3)          D(4)   E(5)       F(6)       
+// A(1)   B(2)    C(3)          D(4)   E(5)       F(6)
 // Étage  Ordre   Description   Note   Ascenseur  Aération
 // G(7)        H(8)       I(9)       J(10)      K(11)       L(12)
 // Nucléaire   Haut.(m)   Larg.(m)   Long.(m)   Surface m²  Fondations
@@ -805,7 +809,7 @@ function _installFloors() {
   var hdrUser   = ['\u00c9tage', 'Ordre', 'Description', 'Note'];
   var hdrParams = ['Ascenseur', 'A\u00e9ration'];
   var hdrCalc   = ['\u26a0\ufe0f Nucl\u00e9aire', 'Haut. (m)', 'Larg. (m)', 'Long. (m)',
-                   'Surface (m\u00b2)', 'Fondations'];
+                   'Surface (m\u00b2)', 'Fondations', 'Niveaux'];
 
   sh.getRange(1, 1, 1, hdrUser.length).setValues([hdrUser]);
   _styleHeader(sh.getRange(1, 1, 1, hdrUser.length), '#6A1B9A');
@@ -843,7 +847,7 @@ function _installFloors() {
     .setColumnWidth(5, 90) .setColumnWidth(6, 90) //  params
     .setColumnWidth(7, 110).setColumnWidth(8, 85) //  nucl., haut.
     .setColumnWidth(9, 85) .setColumnWidth(10, 85) // larg., long.
-    .setColumnWidth(11, 95).setColumnWidth(12, 90); // surface, fondations
+    .setColumnWidth(11, 95).setColumnWidth(12, 90).setColumnWidth(13, 80); // surface, fondations, niveaux
   sh.setTabColor('#37474F'); // Blue Grey 800 — structural/floors  SAT.Log.ok('\u00c9tages \u2014 3 exemples pr\u00e9-remplis (\u00e0 personnaliser)');
 }
 

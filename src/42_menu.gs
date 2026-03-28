@@ -84,8 +84,8 @@ function _buildMenu() {
       .addItem('Diagnostic',                          'SAT_DIAGNOSTIC')
       .addItem('Mettre à jour (reinstall)',            'SAT_forceUpdate')
       .addItem('RESET complet',                       'SAT_resetAll')
-      .addSeparator()
-      .addItem('⚙️ Activer l\'assistant au démarrage',  'SAT_setupTriggers')
+      .addSeparator()      .addItem('\uD83D\uDCCB Changelog',              'SAT_showChangelog')
+      .addSeparator()      .addItem('⚙️ Activer l\'assistant au démarrage',  'SAT_setupTriggers')
       .addToUi();
   } catch(e) {
     Logger.log('ERR _buildMenu: ' + e.message);
@@ -629,6 +629,11 @@ function SAT_computeStageSizes() {
     var longueur = sumLarg      + (aeration  ? 4 : 0);
     var surface  = largeur * longueur;
     var fondations = surface > 0 ? Math.ceil(surface / 64) : 0;
+    // Number of physical floor levels: Satisfactory large building = 16 m per level.
+    // Flag stages with more than one level that have no elevator configured.
+    var nbNiveaux = hauteur > 0 ? Math.ceil(hauteur / 16) : 0;
+    if (nbNiveaux > 1 && !ascenseur)
+      warnings.push(nom + ': ' + nbNiveaux + ' niveaux \u2014 ascenseur recommand\u00e9');
 
     results.push([
       isNuclear ? '\u26A0\uFE0F ISOL\u00C9' : '',
@@ -636,25 +641,27 @@ function SAT_computeStageSizes() {
       largeur,
       longueur,
       surface,
-      fondations
+      fondations,
+      nbNiveaux > 0 ? nbNiveaux : ''
     ]);
 
     if (sd.missing.length > 0)
       warnings.push(nom + ': ' + sd.missing.join(', '));
   });
 
-  // Écriture en une seule opération (cols G–L = 7–12)
-  etagSh.getRange(2, 7, results.length, 6).setValues(results);
+  // Write results in one call (cols G\u2013M = 7\u201313, 7 columns)
+  etagSh.getRange(2, 7, results.length, 7).setValues(results);
 
-  // ── 5. Résumé ─────────────────────────────────────────────────────────
-  var msg = 'Dimensions écrites dans la feuille Étages (cols G–L).\n' +
-    'Modèle bus central  \u2014  1 fondation = 8\u00d78 m = 64 m\u00b2\n' +
+  // \u2500\u2500 5. Summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  var msg = 'Dimensions \u00e9crites dans la feuille \u00c9tages (cols G\u2013M).\n' +
+    'Niveaux = \u00e9tages physiques dans un grand b\u00e2timent (16 m par niveau).\n' +
+    'Mod\u00e8le bus central  \u2014  1 fondation = 8\u00d78 m = 64 m\u00b2\n' +
     'Ascenseur (+4 m larg.)  \u2014  A\u00e9ration (+4 m long.)';
   if (warnings.length > 0)
-    msg += '\n\n\u26a0 Dimensions manquantes pour :\n' + warnings.join('\n');
+    msg += '\n\n\u26a0 Avertissements :\n' + warnings.join('\n');
 
-  SpreadsheetApp.getActiveSpreadsheet().toast('Dimensions des étages mises à jour.', 'S.A.T.', 4);
-  SpreadsheetApp.getUi().alert('Tailles des étages', msg, SpreadsheetApp.getUi().ButtonSet.OK);
+  SpreadsheetApp.getActiveSpreadsheet().toast('Dimensions des \u00e9tages mises \u00e0 jour.', 'S.A.T.', 4);
+  SpreadsheetApp.getUi().alert('Tailles des \u00e9tages', msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 // ─── Archivage & migration ───────────────────────────────────────────────────
@@ -801,4 +808,43 @@ function SAT_onOpenInstallable() {
   try { SAT_openAssistant(); } catch(e) {
     Logger.log('ERR SAT_onOpenInstallable assistant: ' + e.message);
   }
+}
+
+/**
+ * Displays the full version history in a modal alert dialog.
+ * Called from S.A.T. menu → Changelog.
+ */
+function SAT_showChangelog() {
+  var ui  = SpreadsheetApp.getUi();
+  var cfg = SAT.CFG;
+  var entries = [
+    [cfg.VERSION,  '28 Mar 2026',
+      'Floor level detection (>16 m = multi-level, elevator warning). ' +
+      'Electricity breakdown by category (4 sub-lines). ' +
+      '4 dashboard charts (COLUMN + 2\u00d7BAR + PIE). ' +
+      'Changelog moved to S.A.T. menu. ' +
+      'Chart buffer cleared on each refresh (no more parasitic data). ' +
+      'Batch restore on install (faster + reliable).'],
+    ['3.5.6',  '27 Mar 2026',
+      'Smart Assistant sidebar: bottleneck detection, one-click solver fix, OC normalizer, ' +
+      'nuclear waste alert, surplus detection, phase coaching. ' +
+      'CI: release job auto-creates GitHub release on push to main.'],
+    ['3.5.0',  '22 Mar 2026',
+      'Columns K (Qt/min STD) and L (\u26A1 MW). ' +
+      'Dashboard electricity section, bottlenecks, top resources, permanent charts. ' +
+      'Archive & migrate. Stage size calculator.'],
+    ['3.3.1',  '22 Mar 2026', 'Soft-update rebuilds Dashboard + validations on version change.'],
+    ['3.3',    'Mar 2026',    'Cleared row removes auto-computed columns. New row pre-fills OC/Purity.'],
+    ['3.2',    '16\u201321 Mar 2026', 'Full rewrite \u2014 8 modules, Satisfactory 1.1 data (FR names).'],
+    ['3.1',    'Jan 2026',    'Per-row targeted recalc (onEdit optimised).'],
+    ['3.0',    'Nov 2025',    'Migrated to SAT.* namespace architecture.']
+  ];
+  var lines = entries.map(function(e) {
+    return 'v' + e[0] + '  (' + e[1] + ')\n  ' + e[2];
+  });
+  ui.alert(
+    '\uD83D\uDCCB Changelog  \u2014  SAT v' + cfg.VERSION,
+    lines.join('\n\n'),
+    ui.ButtonSet.OK
+  );
 }

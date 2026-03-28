@@ -15,26 +15,16 @@ SAT.Charts = {
     var cfg  = SAT.CFG;
     var dash = SAT.S.get(cfg.SHEETS.DASH);
     if (!dash) throw new Error('Dashboard introuvable');
-
-    // Supprimer les anciens graphiques
-    dash.getCharts().forEach(function(c) {
-      try { dash.removeChart(c); } catch(e) {}
-    });
-
-    var rows = SAT.Engine.buildIndex();
-    if (rows.length === 0) {
-      Logger.log('/!\\ SAT.Charts: aucune donnee a representer');
-      return;
-    }
-
-    SAT.Charts._chartMachinesParEtage(dash, rows);
-    SAT.Charts._chartProductionParRessource(dash, rows);
-    Logger.log('OK Graphiques crees');
+    // Use the unified chart refresh pipeline (writes buffer + recreates 4 charts)
+    var rows  = SAT.Engine.buildIndex();
+    var stats = SAT.Engine.stats(rows);
+    _refreshDashboardCharts(dash, stats);
+    Logger.log('OK Graphiques recr\u00e9\u00e9s (4 graphiques)');
   },
 
-  /** Graphique : nombre de machines par étage */
+  /** Graphique : nombre de machines par étage (data buffer at row 200+) */
   _chartMachinesParEtage: function(dash, rows) {
-    // Agréger machines par étage
+    // Aggregate machines by stage
     var agg = {};
     rows.forEach(function(r) {
       agg[r.etage] = (agg[r.etage] || 0) + (r.nb || 0);
@@ -42,8 +32,8 @@ SAT.Charts = {
     var keys = Object.keys(agg).sort();
     if (keys.length === 0) return;
 
-    // Zone temporaire de données (col F, à partir de la ligne 20)
-    var startRow = 20;
+    // Data buffer at row 200 (well below visible dashboard content)
+    var startRow = 200;
     var startCol = 6;
     dash.getRange(startRow, startCol).setValue('Étage');
     dash.getRange(startRow, startCol + 1).setValue('Machines');
@@ -66,9 +56,9 @@ SAT.Charts = {
     dash.insertChart(chart);
   },
 
-  /** Graphique : production totale par ressource (Top 10) */
+  /** Graphique : production totale par ressource (Top 10, data buffer at row 200+) */
   _chartProductionParRessource: function(dash, rows) {
-    // Agréger production par ressource
+    // Aggregate production by resource
     var agg = {};
     rows.forEach(function(r) {
       if (!r.outRes1 || !r.nb) return;
@@ -83,8 +73,8 @@ SAT.Charts = {
     var top    = sorted.slice(0, 10);
     if (top.length === 0) return;
 
-    // Zone temporaire de données (col I, à partir de la ligne 20)
-    var startRow = 20;
+    // Data buffer at row 200 (well below visible dashboard content)
+    var startRow = 200;
     var startCol = 9;
     dash.getRange(startRow, startCol).setValue('Ressource');
     dash.getRange(startRow, startCol + 1).setValue('Qt/min');

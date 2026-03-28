@@ -46,7 +46,10 @@ repos:
     hooks:
       - id: check-gs-syntax
         name: GAS syntax check (.gs)
-        entry: node --check
+        # Node.js v24 throws ERR_UNKNOWN_FILE_EXTENSION for .gs files when using
+        # `node --check file.gs` (ESM detection rejects unknown extensions).
+        # Workaround: pipe each file via stdin with --input-type=commonjs.
+        entry: bash -c 'for f in "$@"; do node --input-type=commonjs < "$f" || exit 1; done' --
         language: system
         files: \.gs$
       - id: check-scripts-syntax

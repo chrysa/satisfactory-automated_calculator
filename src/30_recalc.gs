@@ -41,12 +41,22 @@ function _refreshDashboard(stats) {
     dash.getRange(9,  2).setValue(stats.errors);
     dash.getRange(10, 2).setValue(stats.todo);
 
-    // ── Stats électricité (B13:B15) ────────────────────────────────────────
-    var mw    = stats.totalMW || 0;
-    var maxMW = stats.maxMW    || 0;
+    // ── Stats électricité (B13:B19) — main line + 4 per-category sub-lines ───
+    var mw       = stats.totalMW || 0;
+    var maxMW    = stats.maxMW   || 0;
+    var mwCat    = stats.mwByCategory || {};
+    var energyNb = stats.energyNb     || 0;
+    // Group into 3 consumption sub-lines + 1 energy machine count
+    var mwExtract = (mwCat['Extraction']  || 0) + (mwCat['Fusion'] || 0);
+    var mwProd    = (mwCat['Production']  || 0) + (mwCat['Raffinage'] || 0) + (mwCat['Conditionnement'] || 0);
+    var mwAvance  = (mwCat['Avanc\u00e9'] || 0);
     dash.getRange(13, 2).setValue(mw);
-    dash.getRange(14, 2).setValue(maxMW);
-    dash.getRange(15, 2).setValue(new Date().toLocaleString('fr-FR'));
+    dash.getRange(14, 2).setValue(mwExtract > 0 ? Math.round(mwExtract * 10) / 10 : '\u2014');
+    dash.getRange(15, 2).setValue(mwProd    > 0 ? Math.round(mwProd    * 10) / 10 : '\u2014');
+    dash.getRange(16, 2).setValue(mwAvance  > 0 ? Math.round(mwAvance  * 10) / 10 : '\u2014');
+    dash.getRange(17, 2).setValue(energyNb  > 0 ? energyNb + ' machine(s)' : '\u2014');
+    dash.getRange(18, 2).setValue(maxMW);
+    dash.getRange(19, 2).setValue(new Date().toLocaleString('fr-FR'));
 
     // ── Stats objectifs solveur (B17:B20) ──────────────────────────────────
     try {
@@ -66,15 +76,15 @@ function _refreshDashboard(stats) {
         var dominantPhase = Object.keys(phaseCounts).reduce(function(a, b) {
           return phaseCounts[a] >= phaseCounts[b] ? a : b;
         }, 'P1');
-        dash.getRange(18, 2).setValue(nbTotal);
-        dash.getRange(19, 2).setValue(nbActifs);
-        dash.getRange(20, 2).setValue(nbResolus);
-        dash.getRange(21, 2).setValue(dominantPhase);
+        dash.getRange(22, 2).setValue(nbTotal);
+        dash.getRange(23, 2).setValue(nbActifs);
+        dash.getRange(24, 2).setValue(nbResolus);
+        dash.getRange(25, 2).setValue(dominantPhase);
       } else {
-        dash.getRange(18, 2).setValue(0);
-        dash.getRange(19, 2).setValue(0);
-        dash.getRange(20, 2).setValue(0);
-        dash.getRange(21, 2).setValue('—');
+        dash.getRange(22, 2).setValue(0);
+        dash.getRange(23, 2).setValue(0);
+        dash.getRange(24, 2).setValue(0);
+        dash.getRange(25, 2).setValue('\u2014');
       }
     } catch(eObj) {
       Logger.log('WARN objectives stats: ' + eObj.message);
@@ -110,51 +120,112 @@ function _refreshDashboard(stats) {
 }
 
 /**
- * Remplit les zones tampon des 2 graphiques permanents du Dashboard.
- * Graphique 1 (col F+G, ligne 40+) : répartition machines par étage.
- * Graphique 2 (col H+I, ligne 40+) : top ressources Qt/min.
+ * Fills the 4 hidden data ranges backing the Dashboard permanent charts,
+ * clears any stale buffer data from previous runs, then recreates all 4 charts.
+ *
+ * Chart layout (2 rows × 2 charts):
+ *   Row 1 anchored at row 29: left=machines/stage (COLUMN) | right=top resources (BAR)
+ *   Row 2 anchored at row 41: left=MW/category (PIE)       | right=bottleneck deficit (BAR)
+ * Data buffer starts at row 66 (cols F-M), well below visible content (~row 60).
  */
 function _refreshDashboardCharts(dash, stats) {
   try {
-    var buf = 50; // must match _installDashboardCharts buf constant
+    var buf = 66; // must match _installDashboardCharts buf constant
+    // Clear the full potential buffer zone — covers old buf=50 and new buf=66 data
+    dash.getRange(50, 6, 200, 8).clearContent();
 
-    // Graphique 1 — machines par étage
+    // ── Chart 1 data: machines by stage (cols F-G) ──────────────────────────
     var etageMap = {};
     (stats._rows || []).forEach(function(row) {
       if (!row.etage) return;
       etageMap[row.etage] = (etageMap[row.etage] || 0) + (row.nb || 0);
     });
     var etages = Object.keys(etageMap);
-    if (etages.length === 0) {
-      dash.getRange(buf, 6, 1, 2).setValues([['Étage','Machines']]);
-    } else {
-      var g1data = [['Étage','Machines']];
-      etages.forEach(function(e) { g1data.push([e, etageMap[e]]); });
-      dash.getRange(buf, 6, g1data.length, 2).setValues(g1data);
-    }
+    var g1 = [['Stage', 'Machines']];
+    etages.forEach(function(e) { g1.push([e, etageMap[e]]); });
+    if (g1.length === 1) g1.push(['\u2014', 0]);
+    dash.getRange(buf, 6, g1.length, 2).setValues(g1);
 
-    // Graphique 2 — top ressources
+    // ── Chart 2 data: top resources Qt/min (cols H-I) ───────────────────────
     var top = stats.topResources || [];
-    if (top.length === 0) {
-      dash.getRange(buf, 8, 1, 2).setValues([['Ressource','Qt/min']]);
-    } else {
-      var g2data = [['Ressource','Qt/min']];
-      top.forEach(function(r) { g2data.push([r.name, r.rate]); });
-      dash.getRange(buf, 8, g2data.length, 2).setValues(g2data);
-    }
+    var g2 = [['Resource', 'Qt/min']];
+    top.forEach(function(r) { g2.push([r.name, r.rate]); });
+    if (g2.length === 1) g2.push(['\u2014', 0]);
+    dash.getRange(buf, 8, g2.length, 2).setValues(g2);
 
-    // Réancrer les graphiques sur les nouvelles plages
-    var charts = dash.getCharts();
-    charts.forEach(function(chart, idx) {
-      var col = (idx === 0) ? 6 : 8;
-      var rows = (idx === 0)
-        ? (etages.length > 0 ? etages.length + 1 : 2)
-        : (top.length   > 0 ? top.length   + 1 : 2);
-      var builder = chart.modify()
-        .clearRanges()
-        .addRange(dash.getRange(buf, col, rows, 2));
-      dash.updateChart(builder.build());
+    // ── Chart 3 data: MW consumption by machine category (cols J-K) ─────────
+    var mwCat = stats.mwByCategory || {};
+    var g3 = [['Category', 'MW']];
+    Object.keys(mwCat).sort().forEach(function(cat) {
+      if (mwCat[cat] > 0) g3.push([cat, Math.round(mwCat[cat] * 10) / 10]);
     });
+    if (g3.length === 1) g3.push(['\u2014', 0]);
+    dash.getRange(buf, 10, g3.length, 2).setValues(g3);
+
+    // ── Chart 4 data: top bottleneck deficits (cols L-M) ────────────────────
+    var under = (stats.underProduced || []).slice(0, 8);
+    var g4 = [['Resource', 'Deficit/min']];
+    under.forEach(function(u) { g4.push([u.name, u.deficit]); });
+    if (g4.length === 1) g4.push(['\u2014', 0]);
+    dash.getRange(buf, 12, g4.length, 2).setValues(g4);
+
+    // ── Recreate all 4 charts with correct ranges + anchor positions ─────────
+    dash.getCharts().forEach(function(c) { try { dash.removeChart(c); } catch(e) {} });
+
+    // Chart 1 — machines by stage (COLUMN: short labels read well vertically)
+    dash.insertChart(dash.newChart()
+      .setChartType(Charts.ChartType.COLUMN)
+      .addRange(dash.getRange(buf, 6, g1.length, 2))
+      .setPosition(29, 1, 4, 4)
+      .setOption('title', 'Machines par \u00e9tage')
+      .setOption('width', 360).setOption('height', 240)
+      .setOption('legend', { position: 'none' })
+      .setOption('vAxis', { title: 'Nb', minValue: 0, textStyle: { fontSize: 9 } })
+      .setOption('hAxis', { textStyle: { fontSize: 8 } })
+      .setOption('backgroundColor', '#F3E5F5')
+      .setOption('chartArea', { width: '80%', height: '65%' })
+      .build());
+
+    // Chart 2 — top production Qt/min (BAR horizontal: resource names need width)
+    dash.insertChart(dash.newChart()
+      .setChartType(Charts.ChartType.BAR)
+      .addRange(dash.getRange(buf, 8, g2.length, 2))
+      .setPosition(29, 5, 4, 4)
+      .setOption('title', 'Top production (Qt/min)')
+      .setOption('width', 360).setOption('height', 240)
+      .setOption('legend', { position: 'none' })
+      .setOption('hAxis', { title: 'Qt/min', minValue: 0, textStyle: { fontSize: 9 } })
+      .setOption('vAxis', { textStyle: { fontSize: 8 } })
+      .setOption('backgroundColor', '#E8F5E9')
+      .setOption('chartArea', { width: '65%', height: '75%' })
+      .build());
+
+    // Chart 3 — power by category (PIE: proportion of total MW is most useful)
+    dash.insertChart(dash.newChart()
+      .setChartType(Charts.ChartType.PIE)
+      .addRange(dash.getRange(buf, 10, g3.length, 2))
+      .setPosition(41, 1, 4, 4)
+      .setOption('title', 'Conso. \u00e9lectrique par cat\u00e9gorie (MW)')
+      .setOption('width', 360).setOption('height', 240)
+      .setOption('pieSliceText', 'percentage')
+      .setOption('legend', { position: 'right', textStyle: { fontSize: 9 } })
+      .setOption('backgroundColor', '#FFF8E1')
+      .setOption('chartArea', { width: '55%', height: '75%' })
+      .build());
+
+    // Chart 4 — top bottlenecks deficit (BAR horizontal)
+    dash.insertChart(dash.newChart()
+      .setChartType(Charts.ChartType.BAR)
+      .addRange(dash.getRange(buf, 12, g4.length, 2))
+      .setPosition(41, 5, 4, 4)
+      .setOption('title', 'Goulots \u2014 d\u00e9ficit /min')
+      .setOption('width', 360).setOption('height', 240)
+      .setOption('legend', { position: 'none' })
+      .setOption('hAxis', { title: 'D\u00e9ficit Qt/min', minValue: 0, textStyle: { fontSize: 9 } })
+      .setOption('vAxis', { textStyle: { fontSize: 8 } })
+      .setOption('backgroundColor', '#FFEBEE')
+      .setOption('chartArea', { width: '65%', height: '75%' })
+      .build());
 
   } catch (e) {
     Logger.log('WARN _refreshDashboardCharts: ' + e.message);
