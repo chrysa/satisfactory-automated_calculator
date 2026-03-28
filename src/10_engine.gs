@@ -166,11 +166,13 @@ SAT.Engine = {
       if (row.purity === 'Impur' && row.isExtractor) flags.push('\u{1F4C9} N\u0153ud impur (\xD70,5)');
       if (row.purity === 'Pur'   && row.isExtractor) flags.push('\u{1F4C8} N\u0153ud pur (\xD72,0)');
 
-      // V\u00e9rification limite convoyeur Mk.5 (780/min)
+      // Vérification limites convoyeur — Mk.5=780/min, Mk.6=1200/min
       var totalOut = row.outRate1 * (row.nb || 1);
       var totalIn  = row.inRate1  * (row.nb || 1);
-      if (totalOut > 780) flags.push('\uD83D\uDFE5 D\u00e9bit OUT ' + totalOut + '/min \u2014 d\u00e9passe Mk.5');
-      if (totalIn  > 780) flags.push('\uD83D\uDFE5 D\u00e9bit IN '  + totalIn  + '/min \u2014 d\u00e9passe Mk.5');
+      if (totalOut > 1200)     flags.push('🟥 Débit OUT ' + totalOut + '/min — dépasse Mk.6 (split requis)');
+      else if (totalOut > 780) flags.push('🟠 Débit OUT ' + totalOut + '/min — convoyeur Mk.6 requis');
+      if (totalIn  > 1200)     flags.push('🟥 Débit IN '  + totalIn  + '/min — dépasse Mk.6 (split requis)');
+      else if (totalIn  > 780) flags.push('🟠 Débit IN '  + totalIn  + '/min — convoyeur Mk.6 requis');
 
       flagsArr.push([flags.join('  ')]);
       causeArr.push([causes.join(' | ')]);

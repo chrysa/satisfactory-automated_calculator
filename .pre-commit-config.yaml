@@ -24,22 +24,34 @@ repos:
 
   # ─── chrysa/pre-commit-tools ──────────────────────────────────────────────
   # https://github.com/chrysa/pre-commit-tools
-  # Note: hooks JS/env not yet in a stable tag — using HEAD SHA until next release
+  # Support .gs (Google Apps Script) inclus depuis le commit 18c9b61
   - repo: https://github.com/chrysa/pre-commit-tools
-    rev: '2dfe7fbf8dcfe33f95fab70aa91e4318b0af8823'
+    rev: '18c9b611ebfd6d211a4732baa6834c919c9aa699'
     hooks:
-      # Détection console.log dans les scripts Node.js (scripts/*.js)
-      # Note : les fichiers .gs (Google Apps Script) ne sont pas encore couverts.
-      # Suivi dans : https://github.com/chrysa/pre-commit-tools/issues
+      # Détection console.log/.debug/.table — couvre .js ET .gs
       - id: console-log-detection
-        name: Détection console.log (JS)
+        name: Détection console.log (JS/GAS)
       - id: console-debug-detection
-        name: Détection console.debug (JS)
+        name: Détection console.debug (JS/GAS)
       - id: console-table-detection
-        name: Détection console.table (JS)
+        name: Détection console.table (JS/GAS)
       # Vérification des fichiers .env (secrets non commités)
       - id: env-file-check
         name: Vérification .env
+      # Tri des clés YAML
+      # DÉSACTIVÉ : bug TypeError sur YAML à types mixtes (bool+str)
+      # Suivi : https://github.com/chrysa/pre-commit-tools/issues/37
+      # - id: yaml-sorter
+      #   name: Tri des clés YAML
+
+  # ─── chrysa/pre-commit-hooks-changelog ───────────────────────────────────
+  # https://github.com/chrysa/pre-commit-hooks-changelog
+  - repo: https://github.com/chrysa/pre-commit-hooks-changelog
+    rev: '40d13585c4c845c36108a565f00c23f2b946e9d9'
+    hooks:
+      - id: generate-changelog
+        name: Génération du changelog
+        args: [--output-file, CHANGELOG.md]
 
   # ─── Hooks locaux (définis dans .pre-commit-hooks.yaml) ──────────────────
   - repo: local

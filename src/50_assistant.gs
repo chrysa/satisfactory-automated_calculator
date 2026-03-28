@@ -113,6 +113,25 @@ SAT.Assistant = {
           body:  'Fais défiler le Dashboard (colonne Goulots) pour les voir.'
         });
       }
+
+      // ── 3b. Near-balance resources — small deficit, easy quick fix ───────
+      var shownInTop = {};
+      stats.underProduced.slice(0, 5).forEach(function(r) { shownInTop[r.name] = true; });
+      var nearBal = stats.underProduced.filter(function(r) {
+        return !shownInTop[r.name] && r.cons > 0 && r.deficit / r.cons < 0.15 && r.deficit > 0.05;
+      });
+      if (nearBal.length > 0) {
+        var nearLines = nearBal.slice(0, 4).map(function(r) {
+          var pct = Math.round(r.prod / r.cons * 100);
+          return '• ' + r.name + ' : ' + pct + '% couvert — manque ' + r.deficit.toFixed(1) + '/min';
+        });
+        cards.push({
+          type:  'info',
+          icon:  '⚖️',
+          title: nearBal.length + ' ressource(s) presque équilibrée(s) (< 15% de déficit)',
+          body:  nearLines.join('\n') + '\nUn léger ajustement d\'OC ou +1 machine suffira à couvrir ces déficits.'
+        });
+      }
     }
 
     // ── 4. High overclock warning with equivalent suggestion ─────────────
@@ -148,6 +167,78 @@ SAT.Assistant = {
             }
           ]
         });
+      });
+    }
+
+    // ── 4b. Low OC waste — machines severely underclocked (< 60%) ─────────
+    var lowOcRows = rows.filter(function(r) { return r.nb > 1 && r.oc > 0 && r.oc < 60; });
+    if (lowOcRows.length > 0) {
+      // Group by (etage|recipe) keeping lowest OC found
+      var lowByKey = {};
+      lowOcRows.forEach(function(r) {
+        var key = r.etage + '|' + r.recipe;
+        if (!lowByKey[key] || r.oc < lowByKey[key].oc) {
+          lowByKey[key] = { etage: r.etage, recipe: r.recipe, nb: r.nb, oc: r.oc };
+        }
+      });
+      var lowKeyList = Object.keys(lowByKey);
+      var lowLines = lowKeyList.slice(0, 4).map(function(k) {
+        var d     = lowByKey[k];
+        var optNb = Math.max(1, Math.ceil(d.nb * d.oc / 100));
+        var optOC = Math.round(d.nb * d.oc / optNb);
+        return '• ' + d.etage + ' · ' + d.recipe + ' : ' + d.nb + ' @' + d.oc + '% → ' + optNb + ' @' + optOC + '%';
+      });
+      if (lowKeyList.length > 4) lowLines.push('  (+ ' + (lowKeyList.length - 4) + ' autres…)');
+      cards.push({
+        type:  'warn',
+        icon:  '📊',
+        title: lowKeyList.length + ' groupe(s) de machines sous-utilisées (OC < 60%)',
+        body:  lowLines.join('\n') + '\nConsolide en moins de machines à OC plus élevé pour économiser de l\'espace.'
+      });
+    }
+
+    // ── 4c. Belt / pipe throughput overflow ─────────────────────────────────────
+    // Capacités des convoyeurs Satisfactory (1.0+) :
+    //   Mk.1=60  Mk.2=120  Mk.3=270  Mk.4=480  Mk.5=780  Mk.6=1200 /min
+    //   Tuyau Mk.1=300  Tuyau Mk.2=600 /min
+    var BELT_MK6  = 1200;
+    var BELT_MK5  = 780;
+
+    var beltNeedsMk6 = [];
+    var beltOverMk6  = [];
+    rows.forEach(function(r) {
+      var nb    = r.nb || 1;
+      var maxTp = Math.max((r.outRate1 || 0) * nb, (r.inRate1 || 0) * nb);
+      if (maxTp > BELT_MK6)      beltOverMk6.push({ r: r, tp: maxTp });
+      else if (maxTp > BELT_MK5) beltNeedsMk6.push({ r: r, tp: maxTp });
+    });
+
+    if (beltOverMk6.length > 0) {
+      var splitLines = beltOverMk6.slice(0, 4).map(function(x) {
+        var needed = Math.ceil(x.tp / BELT_MK6);
+        return '• ' + x.r.etage + ' · ' + x.r.recipe + ' : ' + Math.round(x.tp) + '/min → ×' + needed + ' Mk.6';
+      });
+      if (beltOverMk6.length > 4) splitLines.push('  (+ ' + (beltOverMk6.length - 4) + ' autres…)');
+      cards.push({
+        type:  'error',
+        icon:  '🟥',
+        title: beltOverMk6.length + ' ligne(s) dépassent Mk.6 (1 200/min) — split requis',
+        body:  splitLines.join('\n') + '\nSépare la sortie en plusieurs convoyeurs Mk.6 parallèles.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
+      });
+    }
+
+    if (beltNeedsMk6.length > 0) {
+      var mk6Lines = beltNeedsMk6.slice(0, 4).map(function(x) {
+        return '• ' + x.r.etage + ' · ' + x.r.recipe + ' : ' + Math.round(x.tp) + '/min → Mk.6 requis';
+      });
+      if (beltNeedsMk6.length > 4) mk6Lines.push('  (+ ' + (beltNeedsMk6.length - 4) + ' autres…)');
+      cards.push({
+        type:  'warn',
+        icon:  '🟠',
+        title: beltNeedsMk6.length + ' ligne(s) nécessitent un convoyeur Mk.6 (>780/min)',
+        body:  mk6Lines.join('\n') + '\nPasse au convoyeur Mk.6 ou réduis l\'OC.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
       });
     }
 
