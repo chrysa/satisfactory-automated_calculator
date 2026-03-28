@@ -3,7 +3,7 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
-## Unreleased
+## [3.6.0-35] — 2026-03-28
 
 
 ### Bug Fixes
