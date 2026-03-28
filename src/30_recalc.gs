@@ -130,9 +130,10 @@ function _refreshDashboard(stats) {
  */
 function _refreshDashboardCharts(dash, stats) {
   try {
-    var buf = 66; // must match _installDashboardCharts buf constant
-    // Clear the full potential buffer zone — covers old buf=50 and new buf=66 data
-    dash.getRange(50, 6, 200, 8).clearContent();
+    var buf = 500; // must match _installDashboardCharts buf constant
+    // Clear all possible buffer positions: old buf=20, buf=50, buf=66, buf=200, buf=500+
+    // One big clear covering rows 20-600, cols F-M (8 cols), to wipe any stale data.
+    dash.getRange(20, 6, 580, 8).clearContent();
 
     // ── Chart 1 data: machines by stage (cols F-G) ──────────────────────────
     var etageMap = {};

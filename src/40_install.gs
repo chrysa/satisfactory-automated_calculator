@@ -441,7 +441,7 @@ function _installDashboardCharts(sh) {
   // Remove existing charts
   sh.getCharts().forEach(function(c) { try { sh.removeChart(c); } catch(e) {} });
 
-  var buf = 66; // hidden data buffer row (well below visible content ~row 60)
+  var buf = 500; // hidden data buffer row — far below visible content, never reached in normal use
   // Initialize buffer headers; data is filled by _refreshDashboardCharts on each recalc
   sh.getRange(buf, 6,  1, 2).setValues([['Stage',    'Machines']]);
   sh.getRange(buf, 8,  1, 2).setValues([['Resource', 'Qt/min']]);
