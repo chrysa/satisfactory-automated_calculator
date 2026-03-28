@@ -6,6 +6,12 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 ## Unreleased
 
 
+### Features
+
+- Fix 6 issues — production fill, floor detection, elec sub-lines, charts, changelog, parasitic data ([`56c8a10`](56c8a10373365e311ed68be2b8506c4ab7d96065))
+## [3.6.0-29] — 2026-03-28
+
+
 ### Bug Fixes
 
 - **ux**: Refonte rapport import — % collectibles, affichage limaces, ergonomie sidebar ([`f93d137`](f93d1372f8df703c5f52be39277b93a1aeb26346))
