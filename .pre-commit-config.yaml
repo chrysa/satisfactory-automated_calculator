@@ -1,66 +1,44 @@
-# Configuration pre-commit
-# Voir : https://pre-commit.com
-# Installation : pip install pre-commit && pre-commit install
-# Exécution manuelle : pre-commit run --all-files
+# pre-commit configuration
+# See: https://pre-commit.com
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
 
 repos:
-  # ─── Hooks standards ──────────────────────────────────────────────────────
+  # ── Standard hooks ─────────────────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: f1dff44d3a9ae852957f34def96390f28719c232
     hooks:
       - id: check-json
-        name: Vérification syntaxe JSON
       - id: check-yaml
-        name: Vérification syntaxe YAML
       - id: end-of-file-fixer
-        name: Fin de fichier
       - id: trailing-whitespace
-        name: Espaces en fin de ligne
       - id: check-merge-conflict
-        name: Marqueurs de conflit git
       - id: check-added-large-files
-        name: Fichiers volumineux
         args: [--maxkb=500]
 
-  # ─── chrysa/pre-commit-tools ──────────────────────────────────────────────
+  # ── chrysa/pre-commit-tools ────────────────────────────────────────────────
   # https://github.com/chrysa/pre-commit-tools
-  # Support .gs (Google Apps Script) inclus depuis le commit 18c9b61
+  # .gs (Google Apps Script) support added in commit 18c9b61
   - repo: https://github.com/chrysa/pre-commit-tools
     rev: '18c9b611ebfd6d211a4732baa6834c919c9aa699'
     hooks:
-      # Détection console.log/.debug/.table — couvre .js ET .gs
+      # Detect console.log/.debug/.table — covers both .js and .gs files
       - id: console-log-detection
-        name: Détection console.log (JS/GAS)
       - id: console-debug-detection
-        name: Détection console.debug (JS/GAS)
       - id: console-table-detection
-        name: Détection console.table (JS/GAS)
-      # Vérification des fichiers .env (secrets non commités)
+      # Check .env files for committed secrets
       - id: env-file-check
-        name: Vérification .env
-      # Tri des clés YAML
-      # DÉSACTIVÉ : bug TypeError sur YAML à types mixtes (bool+str)
-      # Suivi : https://github.com/chrysa/pre-commit-tools/issues/37
-      # - id: yaml-sorter
-      #   name: Tri des clés YAML
+      # yaml-sorter DISABLED: upstream TypeError bug with mixed bool+str YAML keys
+      # Tracked: https://github.com/chrysa/pre-commit-tools/issues/37
+      - id: yaml-sorter
 
-  # ─── chrysa/pre-commit-hooks-changelog ───────────────────────────────────
-  # https://github.com/chrysa/pre-commit-hooks-changelog
-  - repo: https://github.com/chrysa/pre-commit-hooks-changelog
-    rev: '40d13585c4c845c36108a565f00c23f2b946e9d9'
-    hooks:
-      - id: generate-changelog
-        name: Génération du changelog
-        args: [--output-file, CHANGELOG.md]
-
-  # ─── Hooks locaux (définis dans .pre-commit-hooks.yaml) ──────────────────
+  # ── Local hooks ────────────────────────────────────────────────────────────
   - repo: local
     hooks:
       - id: check-gs-syntax
         name: GAS syntax check (.gs)
-        # Node.js v24 throws ERR_UNKNOWN_FILE_EXTENSION for .gs files when using
-        # `node --check file.gs` (ESM detection rejects unknown extensions).
-        # Workaround: pipe each file via stdin with --input-type=commonjs.
+        # Node.js v24 rejects unknown extensions via ESM detection.
+        # Workaround: pipe each file through stdin with --input-type=commonjs.
         entry: bash -c 'for f in "$@"; do node --input-type=commonjs < "$f" || exit 1; done' --
         language: system
         files: \.gs$

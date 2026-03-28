@@ -1,7 +1,7 @@
 # =============================================================================
-# S.A.T. — Makefile principal
-# Basé sur : https://github.com/Forge-Stack-Workshop/base-makefile (Makefile.with-sub-folder)
-# Toutes les commandes sont préfixées par @ (non affichées).
+# S.A.T. — Main Makefile
+# Based on: https://github.com/Forge-Stack-Workshop/base-makefile (Makefile.with-sub-folder)
+# All commands are prefixed with @ (silent output).
 # =============================================================================
 
 #!make
@@ -9,16 +9,16 @@ ifneq (,)
 	$(error This Makefile requires GNU Make)
 endif
 
-# ── Chargement de l'environnement ─────────────────────────────────────────────
+# ── Environment loading ───────────────────────────────────────────────────────
 ifneq (,$(wildcard .env))
     include .env
     export $(shell sed 's/=.*//' .env)
 endif
 
-# ── PATH clasp ────────────────────────────────────────────────────────────────
+# ── clasp PATH ────────────────────────────────────────────────────────────────
 export PATH := $(HOME)/.local/lib/npm-global/bin:$(PATH)
 
-# ── Variables (depuis .env ou ligne de commande) ──────────────────────────────
+# ── Variables (from .env or command line) ─────────────────────────────────────
 PROJECT_NAME ?= S.A.T
 VERSION      ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 SCRIPT_ID    ?=
@@ -28,7 +28,7 @@ ENVIRONMENT  ?= dev
 BACKUP_DIR   ?= ./backups
 CLASP_PATH   ?= clasp
 
-# ── Couleurs ──────────────────────────────────────────────────────────────────
+# ── Colors ────────────────────────────────────────────────────────────────────
 RED    := \033[0;31m
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -36,7 +36,7 @@ BLUE   := \033[0;34m
 CYAN   := \033[0;36m
 NC     := \033[0m
 
-# ── Inclusion des sous-makefiles (pattern Makefile.with-sub-folder) ───────────
+# ── Sub-makefile inclusion (Makefile.with-sub-folder pattern) ─────────────────
 include $(wildcard *.Makefile)
 
 # ── Auto-PHONY ────────────────────────────────────────────────────────────────
@@ -44,14 +44,14 @@ include $(wildcard *.Makefile)
 
 .DEFAULT_GOAL := help
 
-# ── Cible help (format base-makefile with-sub-folder) ─────────────────────────
-help: ## Afficher cette aide
+# ── Help target (base-makefile with-sub-folder format) ────────────────────────
+help: ## Show this help
 	@echo "==================================================================="
 	@echo "  $(PROJECT_NAME) — Development Environment"
 	@echo "  Env: $(ENVIRONMENT) | Version: $(VERSION)"
 	@echo "==================================================================="
 	@echo ""
-	@echo "  Commandes disponibles :"
+	@echo "  Available commands:"
 	@echo ""
 	@for file in $(MAKEFILE_LIST); do \
 		grep -E '^[a-zA-Z_-]+(\([^)]*\))?:.*?## .*$$' $$file 2>/dev/null | sort | \

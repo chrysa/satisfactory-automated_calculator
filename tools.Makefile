@@ -1,38 +1,38 @@
-# ── Outils & Maintenance ──────────────────────────────────────────────────────
+# ── Tools & Maintenance ──────────────────────────────────────────────────────
 
-test: ## Lancer les tests Jest (logique pure, sans GSheet)
-	@echo "$(BLUE)🧪 Tests Jest...$(NC)"
-	@test -f package.json && npm test || echo "$(YELLOW)⚠ package.json absent — npm install requis$(NC)"
+test: ## Run Jest unit tests (pure logic, no GSheet required)
+	@echo "$(BLUE)🧪 Running Jest tests...$(NC)"
+	@test -f package.json && npm test || echo "$(YELLOW)⚠ package.json missing — run: npm install$(NC)"
 
-parse-save(SAV): ## Parser un fichier .sav → CSV production + rapport collectibles
-	@test -n "$(SAV)" || (echo "$(RED)✗ Fichier .sav non spécifié$(NC)"; echo "$(YELLOW)Usage : make parse-save SAV=<chemin.sav> [OUT=sortie.csv]$(NC)"; exit 1)
-	@echo "$(BLUE)📦 Parsing : $(SAV)$(NC)"
+parse-save(SAV): ## Parse a .sav file → production CSV + collectibles report
+	@test -n "$(SAV)" || (echo "$(RED)✗ .sav file not specified$(NC)"; echo "$(YELLOW)Usage: make parse-save SAV=<path.sav> [OUT=output.csv]$(NC)"; exit 1)
+	@echo "$(BLUE)📦 Parsing: $(SAV)$(NC)"
 	@node scripts/parse-save.js "$(SAV)" $(if $(OUT),"$(OUT)",)
 
-clean: ## Supprimer les fichiers temporaires et backups
-	@echo "$(BLUE)🧹 Nettoyage...$(NC)"
+clean: ## Remove temporary files and old backups
+	@echo "$(BLUE)🧹 Cleaning...$(NC)"
 	@rm -f *.bak sat-assist-backup-*.tar.gz
-	@echo "$(GREEN)✅ Nettoyage terminé !$(NC)"
+	@echo "$(GREEN)✅ Cleanup complete!$(NC)"
 
-diagnose: ## Diagnostics complets du projet
+diagnose: ## Run project diagnostics
 	@echo "$(BLUE)📋 Diagnostics...$(NC)"
-	@echo "$(YELLOW)Répertoire :$(NC)" && pwd
-	@echo "$(YELLOW)Fichiers .gs :$(NC)" && ls -1 src/*.gs 2>/dev/null | wc -l | xargs printf "  %s fichiers\n"
-	@echo "$(YELLOW)Taille du projet :$(NC)" && du -sh . | awk '{print "  " $$1}'
-	@echo "$(YELLOW)Statut git :$(NC)" && \
-	  { test -d .git && git status -s 2>/dev/null | wc -l | xargs printf "  %s fichiers modifiés\n" \
-	    || echo "  Pas de dépôt git"; }
-	@echo "$(GREEN)✅ Diagnostics terminés !$(NC)"
+	@echo "$(YELLOW)Directory:$(NC)" && pwd
+	@echo "$(YELLOW).gs files:$(NC)" && ls -1 src/*.gs 2>/dev/null | wc -l | xargs printf "  %s files\n"
+	@echo "$(YELLOW)Project size:$(NC)" && du -sh . | awk '{print "  " $$1}'
+	@echo "$(YELLOW)Git status:$(NC)" && \
+	  { test -d .git && git status -s 2>/dev/null | wc -l | xargs printf "  %s changed files\n" \
+	    || echo "  Not a git repository"; }
+	@echo "$(GREEN)✅ Diagnostics complete!$(NC)"
 
-info: ## Informations sur le projet
-	@echo "$(BLUE)📊 Informations — $(PROJECT_NAME)$(NC)"
-	@echo "$(YELLOW)Nom :$(NC)        $(PROJECT_NAME)"
-	@echo "$(YELLOW)Version :$(NC)    $(VERSION)"
-	@echo "$(YELLOW)Branche :$(NC)    $(GIT_BRANCH)"
-	@echo "$(YELLOW)Répertoire :$(NC) $$(pwd)"
-	@echo "$(YELLOW)Fichiers GAS :$(NC)" && ls -1 src/*.gs 2>/dev/null | sed 's/^/  /'
+info: ## Display project information
+	@echo "$(BLUE)📊 Project Information — $(PROJECT_NAME)$(NC)"
+	@echo "$(YELLOW)Name:$(NC)        $(PROJECT_NAME)"
+	@echo "$(YELLOW)Version:$(NC)    $(VERSION)"
+	@echo "$(YELLOW)Branch:$(NC)    $(GIT_BRANCH)"
+	@echo "$(YELLOW)Directory:$(NC) $$(pwd)"
+	@echo "$(YELLOW)GAS files:$(NC)" && ls -1 src/*.gs 2>/dev/null | sed 's/^/  /'
 
-lint: ## Linter et pre-commit (tous les fichiers)
-	@echo "$(BLUE)🔍 Lint & pre-commit...$(NC)"
+lint: ## Run pre-commit hooks on all files
+	@echo "$(BLUE)🔍 Linting...$(NC)"
 	@pre-commit run --all-files || true
-	@echo "$(GREEN)✅ Lint terminé$(NC)"
+	@echo "$(GREEN)✅ Lint complete!$(NC)"

@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"  # LTS; avoids Node.js 20 deprecation warning
 
       - name: Install clasp
         run: npm install -g @google/clasp

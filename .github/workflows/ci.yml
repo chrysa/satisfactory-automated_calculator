@@ -7,34 +7,50 @@ on:
     branches: [main]
 
 jobs:
+
+  # ── 1. Lint & pre-commit ────────────────────────────────────────────────
   lint:
-    name: "🧹 Lint & Format"
+    name: "🧹 Lint & pre-commit"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - name: Install dependencies
-        run: npm ci
-      - name: Run pre-commit hooks
-        run: |
-          pip install pre-commit
-          pre-commit run --all-files
-      - name: Lint JS
-        run: |
-          if [ -f package.json ]; then npm run lint || true; fi
+          node-version: "22"  # LTS; avoids Node.js 20 deprecation warning
 
+      - name: Install Node dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files
+
+  # ── 2. Tests ───────────────────────────────────────────────────────────
   test:
     name: "🧪 Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - name: Install dependencies
-        run: npm ci
-      - name: Run tests
+          node-version: "22"
+
+      - name: Install Node dependencies
         run: |
-          if [ -f package.json ]; then npm test || true; fi
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run Jest tests
+        run: npm test
