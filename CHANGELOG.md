@@ -3,12 +3,14 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
-## Unreleased
+## [3.6.0-31] — 2026-03-28
 
 
 ### Bug Fixes
 
 - **dashboard**: Move chart buffer from row 66 to row 500, wipe rows 20-600 on refresh ([`389a488`](389a4885d0e2ef11f9999e2dc23d2a4558f8eb17))
+- **floors**: Hypothesis B — elevator drives height/level calculation ([`9576124`](957612447cdb7b2c36f9371e152bd7d6d9149e48))
+- Disable yaml-sorter (upstream bug chrysa/pre-commit-tools#37) ([`1ece032`](1ece032dbbb42aeb8c5191e3b82a0c07d14149ba))
 ## [3.6.0-30] — 2026-03-28
 
 
