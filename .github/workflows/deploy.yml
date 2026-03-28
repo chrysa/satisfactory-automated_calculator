@@ -61,7 +61,10 @@ jobs:
       - name: Inject version into 00_core_config.gs
         run: |
           VERSION="${{ needs.version.outputs.semver }}"
-          sed -i "s|VERSION: '[^']*'|VERSION: '$VERSION'|" src/00_core_config.gs
+          # Use word-boundary anchor to replace only the SAT app VERSION key,
+          # NOT the GAME_VERSION key (which stores the Satisfactory game version).
+          sed -i -E "s/(^[[:space:]]*VERSION: ')[^']*/\1$VERSION/" src/00_core_config.gs
+          grep "VERSION:" src/00_core_config.gs | head -5
           echo "✅ VERSION set to $VERSION"
 
       - name: clasp push
