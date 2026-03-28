@@ -598,42 +598,56 @@ function SAT_computeStageSizes() {
     var ascenseur = String(row[4] || '').trim().toLowerCase() === 'oui'; // col E
     var aeration  = String(row[5] || '').trim().toLowerCase() === 'oui'; // col F
 
-    if (!nom) { results.push(['', '', '', '', '', '']); return; }
+    if (!nom) { results.push(['', '', '', '', '', '', '']); return; }
 
     var sd = byStage[nom];
     if (!sd || sd.machines.length === 0) {
-      results.push(['', '—', '—', '—', '—', '—']);
+      results.push(['', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014', '\u2014']);
       if (sd && sd.missing.length > 0)
         warnings.push(nom + ': ' + sd.missing.join(', '));
       return;
     }
 
-    // Isolement nucléaire : au moins une machine de catégorie 'Énergie'
+    // Nuclear isolation: at least one machine in 'Énergie' category
     var isNuclear = sd.machines.some(function(m) { return m.cat === '\u00C9nergie'; });
 
-    // Hauteur : max(haut) + 2 m de dégagement
+    // Tallest machine in this stage
     var maxHaut = 0;
     sd.machines.forEach(function(m) { if (m.haut > maxHaut) maxHaut = m.haut; });
-    var hauteur = maxHaut + 2;
 
-    // Modèle bus central (machines des deux côtés d'un bus de convoyeurs) :
-    //   Largeur = 2 × max(Long + 2) + (ascenseur ? 4 m : 0)
-    //   Longueur = Σ(nb × (Larg + 2)) + (aération ? 4 m : 0)
+    // ── Hypothesis B: elevator column drives height / level logic ─────────
+    // ascenseur = oui  → stage is inside a large building (grid floors of 16 m)
+    //                    nbNiveaux = ceil(maxHaut / 16)   ← how many 16-m floors?
+    //                    hauteur   = nbNiveaux × 16       ← rounded to building grid
+    // ascenseur = non  → ground level / outdoor, no vertical constraint
+    //                    nbNiveaux = 1
+    //                    hauteur   = maxHaut + 2 m clearance
+    var nbNiveaux, hauteur;
+    if (ascenseur) {
+      nbNiveaux = maxHaut > 0 ? Math.ceil(maxHaut / 16) : 1;
+      hauteur   = nbNiveaux * 16;
+    } else {
+      nbNiveaux = 1;
+      hauteur   = maxHaut > 0 ? maxHaut + 2 : 0;
+    }
+
+    // Central-bus model:
+    //   Width  = 2 × max(Length + 2) + (elevator ? 4 m : 0)
+    //   Length = Σ(nb × (Width + 2))  + (ventilation ? 4 m : 0)
     var maxLong = 0;
     var sumLarg = 0;
     sd.machines.forEach(function(m) {
       if (m.long + 2 > maxLong) maxLong = m.long + 2;
       sumLarg += m.nb * (m.larg + 2);
     });
-    var largeur  = 2 * maxLong + (ascenseur ? 4 : 0);
-    var longueur = sumLarg      + (aeration  ? 4 : 0);
-    var surface  = largeur * longueur;
+    var largeur    = 2 * maxLong + (ascenseur ? 4 : 0);
+    var longueur   = sumLarg      + (aeration  ? 4 : 0);
+    var surface    = largeur * longueur;
     var fondations = surface > 0 ? Math.ceil(surface / 64) : 0;
-    // Number of physical floor levels: Satisfactory large building = 16 m per level.
-    // Flag stages with more than one level that have no elevator configured.
-    var nbNiveaux = hauteur > 0 ? Math.ceil(hauteur / 16) : 0;
-    if (nbNiveaux > 1 && !ascenseur)
-      warnings.push(nom + ': ' + nbNiveaux + ' niveaux \u2014 ascenseur recommand\u00e9');
+
+    // Warn only when inside a building with many levels (informational)
+    if (ascenseur && nbNiveaux > 2)
+      warnings.push(nom + ': ' + nbNiveaux + ' niveaux (machine la plus haute\u00a0: ' + maxHaut + '\u00a0m)');
 
     results.push([
       isNuclear ? '\u26A0\uFE0F ISOL\u00C9' : '',
@@ -642,7 +656,7 @@ function SAT_computeStageSizes() {
       longueur,
       surface,
       fondations,
-      nbNiveaux > 0 ? nbNiveaux : ''
+      nbNiveaux
     ]);
 
     if (sd.missing.length > 0)
@@ -654,9 +668,10 @@ function SAT_computeStageSizes() {
 
   // \u2500\u2500 5. Summary \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var msg = 'Dimensions \u00e9crites dans la feuille \u00c9tages (cols G\u2013M).\n' +
-    'Niveaux = \u00e9tages physiques dans un grand b\u00e2timent (16 m par niveau).\n' +
-    'Mod\u00e8le bus central  \u2014  1 fondation = 8\u00d78 m = 64 m\u00b2\n' +
-    'Ascenseur (+4 m larg.)  \u2014  A\u00e9ration (+4 m long.)';
+    'Ascenseur = oui \u2192 sol int\u00e9rieur (grille 16\u00a0m/niveau), niveaux = \u2308haut-max / 16\u2309\n' +
+    'Ascenseur = non \u2192 ext\u00e9rieur / rez-de-chauss\u00e9e, 1 niveau, haut. = haut-max + 2\u00a0m\n' +
+    'Mod\u00e8le bus central \u2014 1 fondation = 8\u00d78\u00a0m = 64\u00a0m\u00b2\n' +
+    'Ascenseur (+4\u00a0m larg.) \u2014 A\u00e9ration (+4\u00a0m long.)';
   if (warnings.length > 0)
     msg += '\n\n\u26a0 Avertissements :\n' + warnings.join('\n');
 

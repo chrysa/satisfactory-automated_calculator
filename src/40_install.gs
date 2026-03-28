@@ -824,13 +824,15 @@ function _installFloors() {
   sh.setFrozenRows(1);
 
   // Dropdowns oui/non pour Ascenseur (col E) et Aération (col F)
+  // Ascenseur = oui → stage inside a large building (16 m floor grid)
+  //             non → ground level / outdoor (no vertical constraint)
   var ouiNon = SpreadsheetApp.newDataValidation()
     .requireValueInList(['oui', 'non'], true).build();
   sh.getRange(2, 5, 200, 1).setDataValidation(ouiNon); // Ascenseur
   sh.getRange(2, 6, 200, 1).setDataValidation(ouiNon); // Aération
 
-  // Cols G-L en lecture seule (fond gris clair)
-  sh.getRange(2, 7, 200, 6).setBackground('#F5F5F5');
+  // Cols G-M en lecture seule (fond gris clair)
+  sh.getRange(2, 7, 200, 7).setBackground('#F5F5F5');
 
   // Étages exemples
   var exemples = [
