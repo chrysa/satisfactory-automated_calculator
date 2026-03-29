@@ -1,137 +1,153 @@
-name: Deploy
-
-on:
+true:
   push:
-    branches: [main]
-  workflow_dispatch:
-
+    branches:
+    - main
+  workflow_dispatch: null
 jobs:
-
-  # ── 1. Compute version (GitVersion) ──────────────────────────────────────
-  version:
-    name: "🔢 Compute Version"
-    runs-on: ubuntu-latest
-    outputs:
-      semver:      ${{ steps.gv.outputs.semVer }}
-      major_minor: ${{ steps.gv.outputs.major }}.${{ steps.gv.outputs.minor }}
-      tag:         v${{ steps.gv.outputs.semVer }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history required by GitVersion
-
-      - uses: gittools/actions/gitversion/setup@v3
-        with:
-          versionSpec: "6.x"
-
-      - id: gv
-        uses: gittools/actions/gitversion/execute@v3
-        with:
-          useConfigFile: true
-          configFilePath: GitVersion.yml
-
-      - name: Print computed version
-        run: echo "Version → ${{ steps.gv.outputs.semVer }}"
-
-  # ── 2. Deploy to Google Apps Script ──────────────────────────────────────
   deploy:
-    name: "🚀 Deploy → GAS"
+    name: Deploy -> GAS
+    needs:
+    - version
     runs-on: ubuntu-latest
-    needs: [version]
-
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install clasp
+      run: npm install -g @google/clasp
+      shell: bash
+    - name: Write credentials
+      run: '[ -n "${{ secrets.CLASPRC_JSON }}" ]   || (echo ''CLASPRC_JSON not set'';
+        exit 1)
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"  # LTS; avoids Node.js 20 deprecation warning
+        [ -n "${{ secrets.CLASP_SCRIPT_ID }}" ] || (echo ''CLASP_SCRIPT_ID not set'';
+        exit 1)
 
-      - name: Install clasp
-        run: npm install -g @google/clasp
+        printf ''%s'' ''${{ secrets.CLASPRC_JSON }}'' > ~/.clasprc.json
 
-      - name: Write credentials
-        run: |
-          [ -n "${{ secrets.CLASPRC_JSON }}" ]   || (echo '❌ CLASPRC_JSON not set'; exit 1)
-          [ -n "${{ secrets.CLASP_SCRIPT_ID }}" ] || (echo '❌ CLASP_SCRIPT_ID not set'; exit 1)
-          printf '%s' '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          python3 -m json.tool ~/.clasprc.json > /dev/null || (echo '❌ CLASPRC_JSON is not valid JSON'; exit 1)
-          printf '%s' '{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}' > .clasp.json
+        python3 -m json.tool ~/.clasprc.json > /dev/null || (echo ''CLASPRC_JSON is
+        not valid JSON''; exit 1)
 
-      - name: Inject version into 00_core_config.gs
-        run: |
-          VERSION="${{ needs.version.outputs.semver }}"
-          # Use word-boundary anchor to replace only the SAT app VERSION key,
-          # NOT the GAME_VERSION key (which stores the Satisfactory game version).
-          sed -i -E "s/(^[[:space:]]*VERSION: ')[^']*/\1$VERSION/" src/00_core_config.gs
-          grep "VERSION:" src/00_core_config.gs | head -5
-          echo "✅ VERSION set to $VERSION"
+        printf ''%s'' ''{"scriptId":"${{ secrets.CLASP_SCRIPT_ID }}","rootDir":"src"}''
+        > .clasp.json
 
-      - name: clasp push
-        run: clasp push --force
+        '
+      shell: bash
+    - name: Inject version into 00_core_config.gs
+      run: 'VERSION="${{ needs.version.outputs.semver }}"
 
-      - name: Deploy summary
-        run: |
-          VERSION="${{ needs.version.outputs.semver }}"
-          echo "## ✅ Deployed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **SAT version** | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **GAS files** | $(find src/ -name '*.gs' | wc -l) .gs |" >> $GITHUB_STEP_SUMMARY
+        sed -i -E "s/(^[[:space:]]*VERSION: '')[^'']*/\1$VERSION/" src/00_core_config.gs
 
-  # ── 3. Generate changelog (git-cliff) + create GitHub release ────────────
+        grep "VERSION:" src/00_core_config.gs | head -5
+
+        echo "VERSION set to $VERSION"
+
+        '
+      shell: bash
+    - name: clasp push
+      run: clasp push --force
+      shell: bash
+    - name: Deploy summary
+      run: 'VERSION="${{ needs.version.outputs.semver }}"
+
+        echo "## Deployed" >> $GITHUB_STEP_SUMMARY
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "| | |" >> $GITHUB_STEP_SUMMARY
+
+        echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+
+        echo "| **SAT version** | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+
+        echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
+        echo "| **GAS files** | $(find src/ -name ''*.gs'' | wc -l) .gs |" >> $GITHUB_STEP_SUMMARY
+
+        '
+      shell: bash
+    timeout-minutes: 15
   release:
-    name: "📦 Changelog & Release"
+    name: Changelog & Release
+    needs:
+    - deploy
+    - version
     runs-on: ubuntu-latest
-    needs: [version, deploy]
-    permissions:
-      contents: write
-      pull-requests: read
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - id: tag_check
+      name: Check if tag exists
+      run: "TAG=\"${{ needs.version.outputs.tag }}\"\nif git rev-parse --quiet --verify\
+        \ \"refs/tags/$TAG\" > /dev/null 2>&1; then\n    echo \"exists=true\" >> \"\
+        $GITHUB_OUTPUT\"\nelse\n    echo \"exists=false\" >> \"$GITHUB_OUTPUT\"\n\
+        fi\n"
+      shell: bash
+    - env:
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        OUTPUT: CHANGELOG.md
+      if: steps.tag_check.outputs.exists == 'false'
+      name: Generate CHANGELOG.md
+      uses: orhun/git-cliff-action@v4
+      with:
+        args: --verbose --tag ${{ needs.version.outputs.tag }}
+        config: cliff.toml
+    - env:
+        GITHUB_REPO: ${{ github.repository }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        OUTPUT: release_notes.md
+      if: steps.tag_check.outputs.exists == 'false'
+      name: Generate release notes
+      uses: orhun/git-cliff-action@v4
+      with:
+        args: --unreleased --tag ${{ needs.version.outputs.tag }} --strip all
+        config: cliff.toml
+    - if: steps.tag_check.outputs.exists == 'false'
+      name: Commit and push CHANGELOG
+      run: 'git config user.name "github-actions[bot]"
 
-      - name: Generate CHANGELOG.md
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --verbose
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit updated CHANGELOG.md
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore(release): update CHANGELOG for v${{ needs.version.outputs.semver }} [skip ci]"
-          git push
+        git add CHANGELOG.md
 
-      - name: Check if release already exists
-        id: check
-        run: |
-          TAG="${{ needs.version.outputs.tag }}"
-          if gh release view "$TAG" &>/dev/null; then
-            echo "exists=true"  >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git diff --staged --quiet || git commit -m "chore(release): update CHANGELOG
+        for ${{ needs.version.outputs.tag }} [skip ci]"
 
-      - name: Create GitHub release
-        if: steps.check.outputs.exists == 'false'
-        run: |
-          TAG="${{ needs.version.outputs.tag }}"
-          NOTES=$(awk "/^## \[${TAG#v}\]/,/^## \[/" CHANGELOG.md | head -n -1)
-          gh release create "$TAG" \
-            --title "SAT $TAG" \
-            --notes "$NOTES"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        git push
+
+        '
+      shell: bash
+    - if: steps.tag_check.outputs.exists == 'false'
+      name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        body_path: release_notes.md
+        make_latest: true
+        name: SAT ${{ needs.version.outputs.tag }}
+        tag_name: ${{ needs.version.outputs.tag }}
+    timeout-minutes: 15
+  version:
+    name: Compute Version
+    outputs:
+      semver: ${{ steps.version.outputs.semVer }}
+      tag: v${{ steps.version.outputs.semVer }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - id: version
+      name: Compute version
+      uses: chrysa/github-actions/gitversion@main
+    - name: Print computed version
+      run: echo "Version -> ${{ steps.version.outputs.semVer }}"
+      shell: bash
+    timeout-minutes: 10
+name: Deploy
+permissions:
+  checks: write
+  contents: write
+  pull-requests: write

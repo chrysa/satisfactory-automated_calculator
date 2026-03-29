@@ -390,9 +390,14 @@ SAT.Assistant = {
       var actionsHtml = '';
       if (c.actions && c.actions.length) {
         actionsHtml = c.actions.map(function(a) {
-          // Safely encode args as JSON in a data attribute
-          var dataArgs = JSON.stringify(a.args || []).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-          return '<button class="act" data-fn="' + _asst_esc(a.fn) + '" data-args=\'' + dataArgs + '\'>' +
+          // Use double-quote delimiters for data-args; escape " as &quot; so JSON parses correctly.
+          // No need to escape apostrophes when using double-quote delimiters.
+          var dataArgs = JSON.stringify(a.args || [])
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/"/g, '&quot;');
+          return '<button class="act" data-fn="' + _asst_esc(a.fn) + '" data-args="' + dataArgs + '">' +
                  _asst_esc(a.label) + '</button>';
         }).join('');
       }
@@ -487,7 +492,7 @@ SAT.Assistant = {
       '<button id="refr" class="refr">🔄 Rafraîchir l\'analyse</button>' +
       '<button class="imp" onclick="google.script.run.SAT_openImportSidebar()">📂 Importer une sauvegarde .sav</button>' +
       '<div id="toast" class="toast"></div>' +
-      '<script>(' + js + ')</script>' +
+      '<script>' + js + '</script>' +
       '</body></html>';
   }
 
