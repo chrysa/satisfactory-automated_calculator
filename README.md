@@ -1,5 +1,7 @@
 # 🏭 S.A.T. — Satisfactory Automated Tracker
 
+[![CI](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml/badge.svg)](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml)
+
 **Game**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Modules**: 11
 
 A production calculator for Satisfactory, built on Google Sheets / Apps Script. Enter recipes by name, get automatic rate calculations, intelligent alerts, and a real-time dashboard.
