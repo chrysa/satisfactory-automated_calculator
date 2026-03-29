@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## Unreleased
+
+
+### Miscellaneous
+
+- Add copilot-instructions and instruction files (#10) ([`dbe83e6`](dbe83e6f4462bb199a7ea505d725e1f8cd180165))
 ## [3.6.0-35] — 2026-03-28
 
 
