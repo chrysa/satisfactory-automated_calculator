@@ -344,7 +344,7 @@ SAT.Assistant = {
       });
     }
 
-    // ── 7b. AWESOME Sink candidates — sinkable surplus ──────────────────────
+    // ── 7b. AWESOME Sink candidates ──────────────────────────────────────────
     // Build a resource → category map from RESOURCES data
     var resCatIdx = {};
     if (SAT.CFG.RESOURCES) {
@@ -358,51 +358,68 @@ SAT.Assistant = {
      'Solution d\'alumine', 'Acide sulfurique', 'Acide nitrique'
     ].forEach(function(n) { _NO_SINK[n] = true; });
 
-    // Two categories:
-    //   - unused end-products : produced but consumed = 0 (no downstream recipe) → threshold > 0.5
-    //   - partial surplus     : produced > consumed but partially used → threshold > 5
-    var sinkableSurplus = [];
+    // ── 7b-1. Ressources sans destination — candidats prioritaires Broyeur ────
+    // Resources produced but with ZERO downstream consumption in the factory.
+    // These are pure end-products: nothing in the production chain consumes them.
+    var unusedProducts = [];
+    Object.keys(produced).forEach(function(res) {
+      var p = produced[res];
+      var c = consumed[res] || 0;
+      if (c > 0)    return;                      // has at least one downstream consumer
+      if (p < 0.01) return;                      // ignore float noise
+      if (resCatIdx[res] === 'Fluide') return;   // fluids cannot be sunk
+      if (_NO_SINK[res]) return;                 // explicit non-sinkable items
+      unusedProducts.push({ name: res, prod: Math.round(p * 10) / 10 });
+    });
+    unusedProducts.sort(function(a, b) { return b.prod - a.prod; });
+
+    if (unusedProducts.length > 0) {
+      var unusedLines = unusedProducts.slice(0, 8).map(function(r) {
+        return '• ' + r.name + ' : ' + r.prod.toFixed(1) + '/min';
+      });
+      if (unusedProducts.length > 8) unusedLines.push('  (+ ' + (unusedProducts.length - 8) + ' autres…)');
+      cards.push({
+        type:    'sink',
+        icon:    '♻️',
+        title:   unusedProducts.length + ' ressource(s) sans destination → Broyeur A.W.E.S.O.M.E.',
+        body:    unusedLines.join('\n') +
+                 '\nCes ressources ne sont consommées par aucune autre machine de l\'usine.' +
+                 '\nEnvoie-les au Broyeur A.W.E.S.O.M.E. pour accumuler des points AWESOME.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
+      });
+    }
+
+    // ── 7b-2. Surplus partiels sinkables ─────────────────────────────────────
+    // Resources that ARE consumed downstream but production exceeds consumption.
+    var partialSurplus = [];
     Object.keys(produced).forEach(function(res) {
       var p     = produced[res];
       var c     = consumed[res] || 0;
       var extra = p - c;
-      if (extra <= 0) return;
-      if (resCatIdx[res] === 'Fluide') return;     // liquids & gases cannot be sunk
-      if (_NO_SINK[res]) return;                   // explicit non-sinkable items
-      var isUnused = (c === 0);                    // no downstream use at all
-      if (isUnused  && extra <  0.5) return;       // ignore near-zero noise
-      if (!isUnused && extra <  5)   return;       // ignore rounding noise on partial surplus
-      sinkableSurplus.push({
-        name:     res,
-        surplus:  Math.round(extra * 10) / 10,
-        prod:     Math.round(p    * 10) / 10,
-        isUnused: isUnused
+      if (c === 0)   return;                     // handled in 7b-1 above
+      if (extra < 5) return;                     // ignore rounding noise
+      if (resCatIdx[res] === 'Fluide') return;
+      if (_NO_SINK[res]) return;
+      partialSurplus.push({
+        name:    res,
+        surplus: Math.round(extra * 10) / 10,
+        prod:    Math.round(p    * 10) / 10
       });
     });
-    sinkableSurplus.sort(function(a, b) {
-      // unused end-products first, then by descending surplus
-      if (a.isUnused !== b.isUnused) return a.isUnused ? -1 : 1;
-      return b.surplus - a.surplus;
-    });
+    partialSurplus.sort(function(a, b) { return b.surplus - a.surplus; });
 
-    if (sinkableSurplus.length > 0) {
-      var sinkLines = sinkableSurplus.slice(0, 6).map(function(r) {
-        if (r.isUnused) {
-          return '• ' + r.name + ' : ' + r.prod.toFixed(1) + '/min (non utilisé)';
-        }
+    if (partialSurplus.length > 0) {
+      var sinkLines = partialSurplus.slice(0, 6).map(function(r) {
         return '• ' + r.name + ' : surplus +' + r.surplus.toFixed(1) + '/min';
       });
-      if (sinkableSurplus.length > 6) sinkLines.push('  (+ ' + (sinkableSurplus.length - 6) + ' autres…)');
-      var unusedCount  = sinkableSurplus.filter(function(r) { return  r.isUnused; }).length;
-      var surplusCount = sinkableSurplus.filter(function(r) { return !r.isUnused; }).length;
-      var titleParts   = [];
-      if (unusedCount  > 0) titleParts.push(unusedCount  + ' non utilisée(s)');
-      if (surplusCount > 0) titleParts.push(surplusCount + ' en surplus');
+      if (partialSurplus.length > 6) sinkLines.push('  (+ ' + (partialSurplus.length - 6) + ' autres…)');
       cards.push({
         type:    'sink',
         icon:    '♻️',
-        title:   sinkableSurplus.length + ' ressource(s) à envoyer au Broyeur A.W.E.S.O.M.E. (' + titleParts.join(', ') + ')',
-        body:    sinkLines.join('\n') + '\nEnvoie ces ressources au Broyeur pour accumuler des points AWESOME.',
+        title:   partialSurplus.length + ' ressource(s) en surplus partiel — sinkable',
+        body:    sinkLines.join('\n') +
+                 '\nCes ressources ont plus de production que de consommation en aval.' +
+                 '\nEnvoie le surplus au Broyeur A.W.E.S.O.M.E. pour accumuler des points AWESOME.',
         actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
       });
     }
