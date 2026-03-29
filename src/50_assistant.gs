@@ -344,6 +344,44 @@ SAT.Assistant = {
       });
     }
 
+    // ── 7b. AWESOME Sink candidates — sinkable surplus ──────────────────────
+    // Build a resource → category map from RESOURCES data
+    var resCatIdx = {};
+    if (SAT.CFG.RESOURCES) {
+      SAT.CFG.RESOURCES.forEach(function(r) { resCatIdx[r[0]] = r[1]; });
+    }
+    // Items that cannot be sunk: nuclear waste, fluids, liquids
+    var _NO_SINK = {};
+    ['Déchet d\'uranium', 'Déchet de plutonium', 'Résidu de matière noire',
+     'Carburant', 'Résidu d\'huile lourde', 'Turbocarburant',
+     'Carburant de fusée', 'Carburant ionisé', 'Biocarburant liquide',
+     'Solution d\'alumine', 'Acide sulfurique', 'Acide nitrique'
+    ].forEach(function(n) { _NO_SINK[n] = true; });
+
+    var sinkableSurplus = [];
+    Object.keys(produced).forEach(function(res) {
+      var p = produced[res], c = consumed[res] || 0, extra = p - c;
+      if (extra < 10) return;                      // ignore rounding noise
+      if (resCatIdx[res] === 'Fluide') return;     // liquids & gases cannot be sunk
+      if (_NO_SINK[res]) return;                   // explicit non-sinkable items
+      sinkableSurplus.push({ name: res, surplus: Math.round(extra * 10) / 10 });
+    });
+    sinkableSurplus.sort(function(a, b) { return b.surplus - a.surplus; });
+
+    if (sinkableSurplus.length > 0) {
+      var sinkLines = sinkableSurplus.slice(0, 5).map(function(r) {
+        return '• ' + r.name + ' : +' + r.surplus.toFixed(1) + '/min';
+      });
+      if (sinkableSurplus.length > 5) sinkLines.push('  (+ ' + (sinkableSurplus.length - 5) + ' autres…)');
+      cards.push({
+        type:    'sink',
+        icon:    '♻️',
+        title:   sinkableSurplus.length + ' ressource(s) à envoyer au Broyeur A.W.E.S.O.M.E.',
+        body:    sinkLines.join('\n') + '\nEnvoie ces surplus au Broyeur pour accumuler des points AWESOME.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
+      });
+    }
+
     // ── 8. Power budget summary ──────────────────────────────────────────
     if (stats.totalMW > 0) {
       var utilPct = stats.maxMW > 0 ? Math.round(stats.totalMW / stats.maxMW * 100) : 0;
@@ -378,9 +416,11 @@ SAT.Assistant = {
 
   _buildHtml: function(cards, stats) {
     var BG = { error:'#FFEBEE', warn:'#FFF8E1', bottleneck:'#FBE9E7',
-               info:'#E3F2FD',  ok:'#E8F5E9',  nuclear:'#FFF3E0', power:'#F3E5F5' };
+               info:'#E3F2FD',  ok:'#E8F5E9',  nuclear:'#FFF3E0', power:'#F3E5F5',
+               sink:'#E0F2F1' };
     var BD = { error:'#EF9A9A', warn:'#FFE082', bottleneck:'#FF8A65',
-               info:'#90CAF9',  ok:'#A5D6A7',  nuclear:'#FFCC80',  power:'#CE93D8' };
+               info:'#90CAF9',  ok:'#A5D6A7',  nuclear:'#FFCC80',  power:'#CE93D8',
+               sink:'#80CBC4' };
 
     // Encode all action calls into an inline data attribute for the JS handler
     var cardHtml = cards.map(function(c) {
