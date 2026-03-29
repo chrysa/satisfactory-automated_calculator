@@ -24,10 +24,4 @@ repos:
   - id: js-syntax-check
     exclude: '\.gs$'
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: 4462e85fc30aeec4bddb1728383c504626f1b9d2
-- hooks:
-  - id: generate-changelog
-    stages:
-    - manual
-  repo: https://github.com/chrysa/pre-commit-hooks-changelog
-  rev: 40d13585c4c845c36108a565f00c23f2b946e9d9
+  rev: 0.1.0
