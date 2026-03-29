@@ -358,26 +358,51 @@ SAT.Assistant = {
      'Solution d\'alumine', 'Acide sulfurique', 'Acide nitrique'
     ].forEach(function(n) { _NO_SINK[n] = true; });
 
+    // Two categories:
+    //   - unused end-products : produced but consumed = 0 (no downstream recipe) → threshold > 0.5
+    //   - partial surplus     : produced > consumed but partially used → threshold > 5
     var sinkableSurplus = [];
     Object.keys(produced).forEach(function(res) {
-      var p = produced[res], c = consumed[res] || 0, extra = p - c;
-      if (extra < 10) return;                      // ignore rounding noise
+      var p     = produced[res];
+      var c     = consumed[res] || 0;
+      var extra = p - c;
+      if (extra <= 0) return;
       if (resCatIdx[res] === 'Fluide') return;     // liquids & gases cannot be sunk
       if (_NO_SINK[res]) return;                   // explicit non-sinkable items
-      sinkableSurplus.push({ name: res, surplus: Math.round(extra * 10) / 10 });
+      var isUnused = (c === 0);                    // no downstream use at all
+      if (isUnused  && extra <  0.5) return;       // ignore near-zero noise
+      if (!isUnused && extra <  5)   return;       // ignore rounding noise on partial surplus
+      sinkableSurplus.push({
+        name:     res,
+        surplus:  Math.round(extra * 10) / 10,
+        prod:     Math.round(p    * 10) / 10,
+        isUnused: isUnused
+      });
     });
-    sinkableSurplus.sort(function(a, b) { return b.surplus - a.surplus; });
+    sinkableSurplus.sort(function(a, b) {
+      // unused end-products first, then by descending surplus
+      if (a.isUnused !== b.isUnused) return a.isUnused ? -1 : 1;
+      return b.surplus - a.surplus;
+    });
 
     if (sinkableSurplus.length > 0) {
-      var sinkLines = sinkableSurplus.slice(0, 5).map(function(r) {
-        return '• ' + r.name + ' : +' + r.surplus.toFixed(1) + '/min';
+      var sinkLines = sinkableSurplus.slice(0, 6).map(function(r) {
+        if (r.isUnused) {
+          return '• ' + r.name + ' : ' + r.prod.toFixed(1) + '/min (non utilisé)';
+        }
+        return '• ' + r.name + ' : surplus +' + r.surplus.toFixed(1) + '/min';
       });
-      if (sinkableSurplus.length > 5) sinkLines.push('  (+ ' + (sinkableSurplus.length - 5) + ' autres…)');
+      if (sinkableSurplus.length > 6) sinkLines.push('  (+ ' + (sinkableSurplus.length - 6) + ' autres…)');
+      var unusedCount  = sinkableSurplus.filter(function(r) { return  r.isUnused; }).length;
+      var surplusCount = sinkableSurplus.filter(function(r) { return !r.isUnused; }).length;
+      var titleParts   = [];
+      if (unusedCount  > 0) titleParts.push(unusedCount  + ' non utilisée(s)');
+      if (surplusCount > 0) titleParts.push(surplusCount + ' en surplus');
       cards.push({
         type:    'sink',
         icon:    '♻️',
-        title:   sinkableSurplus.length + ' ressource(s) à envoyer au Broyeur A.W.E.S.O.M.E.',
-        body:    sinkLines.join('\n') + '\nEnvoie ces surplus au Broyeur pour accumuler des points AWESOME.',
+        title:   sinkableSurplus.length + ' ressource(s) à envoyer au Broyeur A.W.E.S.O.M.E. (' + titleParts.join(', ') + ')',
+        body:    sinkLines.join('\n') + '\nEnvoie ces ressources au Broyeur pour accumuler des points AWESOME.',
         actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
       });
     }
