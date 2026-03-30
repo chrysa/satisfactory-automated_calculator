@@ -20,7 +20,7 @@ repos:
   # https://github.com/chrysa/pre-commit-tools
   # .gs (Google Apps Script) support added in commit 18c9b61
   - repo: https://github.com/chrysa/pre-commit-tools
-    rev: '18c9b611ebfd6d211a4732baa6834c919c9aa699'
+    rev: '4462e85fc30aeec4bddb1728383c504626f1b9d2'
     hooks:
       # Detect console.log/.debug/.table — covers both .js and .gs files
       - id: console-log-detection
