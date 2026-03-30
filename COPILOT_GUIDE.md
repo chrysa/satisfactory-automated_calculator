@@ -279,7 +279,7 @@ Follow the existing format exactly.
 Version numbers are computed automatically by **GitVersion** from the git history:
 
 - `feat:` → minor bump
-- `fix:` / `chore:` → patch bump  
+- `fix:` / `chore:` → patch bump
 - `feat!:` or `BREAKING CHANGE` → major bump
 
 The `VERSION` field in `00_core_config.gs` is injected by the CI deploy job.
@@ -529,4 +529,3 @@ la recette "Moteur" :
 | `données introuvables pour Satisfactory v…` | `GAME_VERSION` ne correspond à aucun `SAT.DATA` | Vérifier que `01_data_vX_Y.gs` existe et est pushé |
 | Recette introuvable dans l'index | Nom avec faute (accent, casse) | Vérifier le nom exact dans `01_data_v1_1.gs` |
 | Taux OUT = 0 sur extracteur | Pureté non reconnue | Valeurs valides : `'Impur'`, `'Normal'`, `'Pur'` |
-

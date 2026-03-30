@@ -1,20 +1,5 @@
-# GitVersion.yml — Semantic versioning configuration
-# https://gitversion.net/docs/reference/configuration
-#
-# Branching strategy: GitHubFlow (main + feature/* + fix/*)
-# workflow: GitHubFlow/v1 pré-configure main avec increment: Patch
-#
-# Commit message conventions (Conventional Commits):
-#   feat:          → minor bump  (3.5.x → 3.6.0)
-#   fix: / chore:  → patch bump  (3.5.5 → 3.5.6)
-#   feat!: or BREAKING CHANGE in footer → major bump
-#
-# next-version: fallback used when no git tag exists yet.
-# Once a vX.Y.Z tag is present, GitVersion ignores this value.
-
+major-version-bump-message: ^(feat|fix|refactor|perf|chore)(\([^)]+\))?!:.+
+minor-version-bump-message: ^feat(\([^)]+\))?:.+
+next-version: 3.5.5
+patch-version-bump-message: ^(fix|chore|docs|style|refactor|perf|test|build|ci)(\([^)]+\))?:.+
 workflow: GitHubFlow/v1
-next-version: '3.5.5'
-
-major-version-bump-message: "^(feat|fix|refactor|perf|chore)(\\([^)]+\\))?!:.+"
-minor-version-bump-message: "^feat(\\([^)]+\\))?:.+"
-patch-version-bump-message: "^(fix|chore|docs|style|refactor|perf|test|build|ci)(\\([^)]+\\))?:.+"
