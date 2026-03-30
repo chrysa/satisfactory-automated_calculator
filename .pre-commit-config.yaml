@@ -13,7 +13,7 @@ repos:
     - --maxkb=500
     id: check-added-large-files
   repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: f1dff44d3a9ae852957f34def96390f28719c232
+  rev: v5.0.0
 - hooks:
   - id: console-log-detection
   - id: console-debug-detection
