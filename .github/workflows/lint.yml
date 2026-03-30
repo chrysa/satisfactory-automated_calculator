@@ -1,4 +1,4 @@
-true:
+'on':
   pull_request: null
   workflow_dispatch: null
 jobs:

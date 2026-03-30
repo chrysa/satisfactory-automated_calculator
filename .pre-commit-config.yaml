@@ -21,6 +21,7 @@ repos:
   - id: no-console-warn
   - id: env-file-check
   - id: yaml-sorter
+    exclude: ^\.github/workflows/
   - id: js-syntax-check
     exclude: '\.gs$'
   repo: https://github.com/chrysa/pre-commit-tools
