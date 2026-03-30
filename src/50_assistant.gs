@@ -344,6 +344,86 @@ SAT.Assistant = {
       });
     }
 
+    // ── 7b. AWESOME Sink candidates ──────────────────────────────────────────
+    // Build a resource → category map from RESOURCES data
+    var resCatIdx = {};
+    if (SAT.CFG.RESOURCES) {
+      SAT.CFG.RESOURCES.forEach(function(r) { resCatIdx[r[0]] = r[1]; });
+    }
+    // Items that cannot be sunk: nuclear waste, fluids, liquids
+    var _NO_SINK = {};
+    ['Déchet d\'uranium', 'Déchet de plutonium', 'Résidu de matière noire',
+     'Carburant', 'Résidu d\'huile lourde', 'Turbocarburant',
+     'Carburant de fusée', 'Carburant ionisé', 'Biocarburant liquide',
+     'Solution d\'alumine', 'Acide sulfurique', 'Acide nitrique'
+    ].forEach(function(n) { _NO_SINK[n] = true; });
+
+    // ── 7b-1. Ressources sans destination — candidats prioritaires Broyeur ────
+    // Resources produced but with ZERO downstream consumption in the factory.
+    // These are pure end-products: nothing in the production chain consumes them.
+    var unusedProducts = [];
+    Object.keys(produced).forEach(function(res) {
+      var p = produced[res];
+      var c = consumed[res] || 0;
+      if (c > 0)    return;                      // has at least one downstream consumer
+      if (p < 0.01) return;                      // ignore float noise
+      if (resCatIdx[res] === 'Fluide') return;   // fluids cannot be sunk
+      if (_NO_SINK[res]) return;                 // explicit non-sinkable items
+      unusedProducts.push({ name: res, prod: Math.round(p * 10) / 10 });
+    });
+    unusedProducts.sort(function(a, b) { return b.prod - a.prod; });
+
+    if (unusedProducts.length > 0) {
+      var unusedLines = unusedProducts.slice(0, 8).map(function(r) {
+        return '• ' + r.name + ' : ' + r.prod.toFixed(1) + '/min';
+      });
+      if (unusedProducts.length > 8) unusedLines.push('  (+ ' + (unusedProducts.length - 8) + ' autres…)');
+      cards.push({
+        type:    'sink',
+        icon:    '♻️',
+        title:   unusedProducts.length + ' ressource(s) sans destination → Broyeur A.W.E.S.O.M.E.',
+        body:    unusedLines.join('\n') +
+                 '\nCes ressources ne sont consommées par aucune autre machine de l\'usine.' +
+                 '\nEnvoie-les au Broyeur A.W.E.S.O.M.E. pour accumuler des points AWESOME.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
+      });
+    }
+
+    // ── 7b-2. Surplus partiels sinkables ─────────────────────────────────────
+    // Resources that ARE consumed downstream but production exceeds consumption.
+    var partialSurplus = [];
+    Object.keys(produced).forEach(function(res) {
+      var p     = produced[res];
+      var c     = consumed[res] || 0;
+      var extra = p - c;
+      if (c === 0)   return;                     // handled in 7b-1 above
+      if (extra < 5) return;                     // ignore rounding noise
+      if (resCatIdx[res] === 'Fluide') return;
+      if (_NO_SINK[res]) return;
+      partialSurplus.push({
+        name:    res,
+        surplus: Math.round(extra * 10) / 10,
+        prod:    Math.round(p    * 10) / 10
+      });
+    });
+    partialSurplus.sort(function(a, b) { return b.surplus - a.surplus; });
+
+    if (partialSurplus.length > 0) {
+      var sinkLines = partialSurplus.slice(0, 6).map(function(r) {
+        return '• ' + r.name + ' : surplus +' + r.surplus.toFixed(1) + '/min';
+      });
+      if (partialSurplus.length > 6) sinkLines.push('  (+ ' + (partialSurplus.length - 6) + ' autres…)');
+      cards.push({
+        type:    'sink',
+        icon:    '♻️',
+        title:   partialSurplus.length + ' ressource(s) en surplus partiel — sinkable',
+        body:    sinkLines.join('\n') +
+                 '\nCes ressources ont plus de production que de consommation en aval.' +
+                 '\nEnvoie le surplus au Broyeur A.W.E.S.O.M.E. pour accumuler des points AWESOME.',
+        actions: [{ label: '📋 Voir dans Production', fn: 'SAT_focusProduction', args: [] }]
+      });
+    }
+
     // ── 8. Power budget summary ──────────────────────────────────────────
     if (stats.totalMW > 0) {
       var utilPct = stats.maxMW > 0 ? Math.round(stats.totalMW / stats.maxMW * 100) : 0;
@@ -378,9 +458,11 @@ SAT.Assistant = {
 
   _buildHtml: function(cards, stats) {
     var BG = { error:'#FFEBEE', warn:'#FFF8E1', bottleneck:'#FBE9E7',
-               info:'#E3F2FD',  ok:'#E8F5E9',  nuclear:'#FFF3E0', power:'#F3E5F5' };
+               info:'#E3F2FD',  ok:'#E8F5E9',  nuclear:'#FFF3E0', power:'#F3E5F5',
+               sink:'#E0F2F1' };
     var BD = { error:'#EF9A9A', warn:'#FFE082', bottleneck:'#FF8A65',
-               info:'#90CAF9',  ok:'#A5D6A7',  nuclear:'#FFCC80',  power:'#CE93D8' };
+               info:'#90CAF9',  ok:'#A5D6A7',  nuclear:'#FFCC80',  power:'#CE93D8',
+               sink:'#80CBC4' };
 
     // Encode all action calls into an inline data attribute for the JS handler
     var cardHtml = cards.map(function(c) {
@@ -390,9 +472,14 @@ SAT.Assistant = {
       var actionsHtml = '';
       if (c.actions && c.actions.length) {
         actionsHtml = c.actions.map(function(a) {
-          // Safely encode args as JSON in a data attribute
-          var dataArgs = JSON.stringify(a.args || []).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-          return '<button class="act" data-fn="' + _asst_esc(a.fn) + '" data-args=\'' + dataArgs + '\'>' +
+          // Use double-quote delimiters for data-args; escape " as &quot; so JSON parses correctly.
+          // No need to escape apostrophes when using double-quote delimiters.
+          var dataArgs = JSON.stringify(a.args || [])
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/"/g, '&quot;');
+          return '<button class="act" data-fn="' + _asst_esc(a.fn) + '" data-args="' + dataArgs + '">' +
                  _asst_esc(a.label) + '</button>';
         }).join('');
       }
@@ -487,7 +574,7 @@ SAT.Assistant = {
       '<button id="refr" class="refr">🔄 Rafraîchir l\'analyse</button>' +
       '<button class="imp" onclick="google.script.run.SAT_openImportSidebar()">📂 Importer une sauvegarde .sav</button>' +
       '<div id="toast" class="toast"></div>' +
-      '<script>(' + js + ')</script>' +
+      '<script>' + js + '</script>' +
       '</body></html>';
   }
 

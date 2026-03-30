@@ -1,5 +1,15 @@
 # 🏭 S.A.T. — Satisfactory Automated Tracker
 
+[![CI](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml/badge.svg)](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml)
+[![Deploy](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/deploy.yml/badge.svg)](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/deploy.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=chrysa_satisfactory-automated_calculator&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=chrysa_satisfactory-automated_calculator)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=chrysa_satisfactory-automated_calculator&metric=coverage)](https://sonarcloud.io/summary/new_code?id=chrysa_satisfactory-automated_calculator)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=chrysa_satisfactory-automated_calculator&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=chrysa_satisfactory-automated_calculator)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=chrysa_satisfactory-automated_calculator&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=chrysa_satisfactory-automated_calculator)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=chrysa_satisfactory-automated_calculator&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=chrysa_satisfactory-automated_calculator)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Game**: Satisfactory 1.1 | **Status**: ✅ Production Ready | **Modules**: 11
 
 A production calculator for Satisfactory, built on Google Sheets / Apps Script. Enter recipes by name, get automatic rate calculations, intelligent alerts, and a real-time dashboard.

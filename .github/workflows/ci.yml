@@ -1,56 +1,85 @@
-name: CI
-
-on:
-  push:
-    branches: [main]
+true:
   pull_request:
-    branches: [main]
-
+    branches:
+    - main
+  push:
+    branches:
+    - feature/**
+    - fix/**
+    - main
+  workflow_dispatch: null
 jobs:
-
-  # ── 1. Lint & pre-commit ────────────────────────────────────────────────
   lint:
-    name: "🧹 Lint & pre-commit"
+    name: Lint & pre-commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"  # LTS; avoids Node.js 20 deprecation warning
-
-      - name: Install Node dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Install pre-commit
-        run: pip install pre-commit
-
-      - name: Run pre-commit hooks
-        run: pre-commit run --all-files
-
-  # ── 2. Tests ───────────────────────────────────────────────────────────
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install Node dependencies
+      run: "if [ -f package-lock.json ]; then\n    npm ci\nelse\n    npm install\n\
+        fi\n"
+      shell: bash
+    - name: Install pre-commit
+      run: pip install pre-commit
+      shell: bash
+    - name: Run pre-commit hooks
+      run: pre-commit run --all-files
+      shell: bash
+    timeout-minutes: 10
+  sonar:
+    name: SonarCloud
+    needs:
+    - lint
+    - test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - continue-on-error: true
+      name: Download coverage report
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
+    - name: SonarCloud Scan
+      uses: chrysa/github-actions/sonar-js-scan@v1
+      with:
+        coverage-report-paths: coverage/lcov.info
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        organization: chrysa
+        project-key: chrysa_satisfactory-automated_calculator
+        project-name: satisfactory-automated_calculator
+        sonar-token: ${{ secrets.SONAR_TOKEN }}
+        sources: src,scripts
+    timeout-minutes: 10
   test:
-    name: "🧪 Tests"
+    name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install Node dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Run Jest tests
-        run: npm test
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install Node dependencies
+      run: "if [ -f package-lock.json ]; then\n    npm ci\nelse\n    npm install\n\
+        fi\n"
+      shell: bash
+    - name: Run Jest tests with coverage
+      run: npx jest --testPathPattern='tests/' --coverage --coverageReporters=lcov
+        --coverageReporters=text
+      shell: bash
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        if-no-files-found: ignore
+        name: coverage-report
+        path: coverage/lcov.info
+    timeout-minutes: 10
+name: CI
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
