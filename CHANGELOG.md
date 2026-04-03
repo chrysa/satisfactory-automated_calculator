@@ -3,7 +3,18 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
-## Unreleased
+## [3.6.0-43] — 2026-04-03
+
+
+### Miscellaneous
+
+- Standardize CI action refs, remove pre-commit-hooks-changelog (#9) ([`0bbf912`](0bbf912dc8c70e48989e684a15dad1a6bb0a978a))
+- Add dependencies-action, PR labeler, and CI standards ([`955a5cc`](955a5cc4945e6749b7f482b6276a02045a96972e))
+- Add CLAUDE.md with project context ([`fc6b878`](fc6b878de639f10f3597276e60535b47a176baf6))
+- **ci**: Bump actions/checkout from 4 to 6 ([`e18a29f`](e18a29f09016124dcbaabab5750829f3d6e7fdfd))
+- **ci**: Bump actions/setup-node from 4 to 6 ([`9f6f4fc`](9f6f4fca0254621df62e21e8b252f4c38d68c01f))
+- Standardize repo configuration ([`a0b9a5a`](a0b9a5a13e1eca8d47c059dc81f8c1a1d05ca538))
+## [3.6.0-37] — 2026-03-29
 
 
 ### Miscellaneous
@@ -118,3 +129,4 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 
 - Bump version to v3.5.1, update changelog with assistant features ([`eb50a3a`](eb50a3ab7854c6782d7ed68dbf117fbd0e99e2e6))
 - Remove stale 51_import.html + version bump 3.5.4 ([`757651b`](757651b08acba99ddc7866a8c9905fbb6a1bfe58))
+
