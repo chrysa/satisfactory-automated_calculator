@@ -1,4 +1,4 @@
-true:
+'on':
   push:
     branches:
     - main
@@ -141,7 +141,7 @@ jobs:
         fetch-depth: 0
     - id: version
       name: Compute version
-      uses: chrysa/github-actions/gitversion@main
+      uses: chrysa/github-actions/gitversion@v1
     - name: Print computed version
       run: echo "Version -> ${{ steps.version.outputs.semVer }}"
       shell: bash

@@ -1,39 +1,29 @@
-name: Lint
-
-on:
-  pull_request:
-  workflow_dispatch:
-
+'on':
+  pull_request: null
+  workflow_dispatch: null
 jobs:
   lint:
-    name: "🔍 Lint & Validate"
+    name: "\U0001F50D Lint & Validate"
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Validate appsscript.json
-        run: |
-          python3 -m json.tool src/appsscript.json > /dev/null \
-            || (echo '❌ src/appsscript.json is invalid JSON'; exit 1)
-          echo '✅ appsscript.json OK'
-
-      - name: Check .gs file count
-        run: |
-          COUNT=$(find src/ -name "*.gs" | wc -l)
-          echo "📂 $COUNT .gs files found"
-          [ "$COUNT" -ge 10 ] || (echo '❌ Expected at least 10 .gs files'; exit 1)
-          DATA=$(find src/data/ -name "01_data_v*.gs" 2>/dev/null | wc -l)
-          echo "  Data files in src/data/: $DATA"
-          [ "$DATA" -ge 1 ] || (echo '❌ No versioned data file found in src/data/ (expected 01_data_v*.gs)'; exit 1)
-          echo '✅ File counts OK'
-
-      - name: Reject debug/temp files
-        run: |
-          BAD=$(find src/ \( -name "*_completion.gs" -o -name "AUTOMATION.gs" \
-                           -o -name "50_verify_and_fix.gs" -o -name "TEMPLATE*.gs" \) 2>/dev/null)
-          [ -z "$BAD" ] || (echo "❌ Debug/template files found in src/: $BAD"; exit 1)
-          echo '✅ No debug or template files'
-
-      - name: Check Node.js parse-save syntax
-        run: node --check scripts/parse-save.js && echo '✅ parse-save.js syntax OK'
+    - uses: actions/checkout@v6
+    - name: Validate appsscript.json
+      run: "python3 -m json.tool src/appsscript.json > /dev/null \\\n  || (echo '\u274C\
+        \ src/appsscript.json is invalid JSON'; exit 1)\necho '\u2705 appsscript.json\
+        \ OK'\n"
+    - name: Check .gs file count
+      run: "COUNT=$(find src/ -name \"*.gs\" | wc -l)\necho \"\U0001F4C2 $COUNT .gs\
+        \ files found\"\n[ \"$COUNT\" -ge 10 ] || (echo '\u274C Expected at least\
+        \ 10 .gs files'; exit 1)\nDATA=$(find src/data/ -name \"01_data_v*.gs\" 2>/dev/null\
+        \ | wc -l)\necho \"  Data files in src/data/: $DATA\"\n[ \"$DATA\" -ge 1 ]\
+        \ || (echo '\u274C No versioned data file found in src/data/ (expected 01_data_v*.gs)';\
+        \ exit 1)\necho '\u2705 File counts OK'\n"
+    - name: Reject debug/temp files
+      run: "BAD=$(find src/ \\( -name \"*_completion.gs\" -o -name \"AUTOMATION.gs\"\
+        \ \\\n                 -o -name \"50_verify_and_fix.gs\" -o -name \"TEMPLATE*.gs\"\
+        \ \\) 2>/dev/null)\n[ -z \"$BAD\" ] || (echo \"\u274C Debug/template files\
+        \ found in src/: $BAD\"; exit 1)\necho '\u2705 No debug or template files'\n"
+    - name: Check Node.js parse-save syntax
+      run: "node --check scripts/parse-save.js && echo '\u2705 parse-save.js syntax\
+        \ OK'"
+name: Lint

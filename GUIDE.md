@@ -304,19 +304,19 @@ Error rows are highlighted in red automatically.
 
 ## 11. FAQ
 
-**Q: Dropdowns are missing in the Machine column.**  
+**Q: Dropdowns are missing in the Machine column.**
 A: Check that ⚙️ Machines has data from row 2 onwards. If empty: menu SAT → Update (soft reinstall).
 
-**Q: I added resources but they don't appear in dropdowns.**  
+**Q: I added resources but they don't appear in dropdowns.**
 A: Validations are rebuilt on install. Go to SAT → Full recalculate, or close and reopen the sheet.
 
-**Q: Dashboard shows `#ERROR` in some cells.**  
+**Q: Dashboard shows `#ERROR` in some cells.**
 A: Close and reopen the sheet. If it persists: menu SAT → Update (soft reinstall).
 
-**Q: Can I add custom resource types?**  
+**Q: Can I add custom resource types?**
 A: Yes. Just append a row in 💎 Resources with any type you like — there is no closed list.
 
-**Q: How do I export my data?**  
+**Q: How do I export my data?**
 A: Use **File → Download → Microsoft Excel (.xlsx)** or **.csv** from Google Sheets.
 
 ---
