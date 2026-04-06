@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-48] — 2026-04-06
+
+
+### Documentation
+
+- **arch**: Add ADR-001 and M-SA save analysis strategy (#42) ([`1c58495`](1c5849505f882e64a06b3e94a37bc726a554da43))
 ## [3.6.0-47] — 2026-04-06
 
 
