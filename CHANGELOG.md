@@ -3,6 +3,15 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-47] — 2026-04-06
+
+
+### Miscellaneous
+
+- **ci**: Bump actions/upload-artifact from 4 to 7 (#38) ([`e1573c8`](e1573c872622e10e71332ba8264f898a22217974))
+- **ci**: Bump actions/github-script from 7 to 8 (#39) ([`1c87671`](1c87671ffa2fc2ccea6ad12f96bb885a28a50dd2))
+- **ci**: Bump actions/labeler from 5 to 6 (#40) ([`8d056a9`](8d056a9e59a98e7fe1ce6fd940bde3f108fb4d89))
+- **ci**: Bump actions/download-artifact from 4 to 8 (#41) ([`b6475da`](b6475da486d4dc0538cddc38494a48f7a4fedd6d))
 ## [3.6.0-43] — 2026-04-03
 
 
