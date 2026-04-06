@@ -40,7 +40,7 @@ jobs:
         fetch-depth: 0
     - continue-on-error: true
       name: Download coverage report
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: coverage-report
         path: coverage/
