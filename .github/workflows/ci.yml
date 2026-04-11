@@ -68,7 +68,7 @@ jobs:
         fi\n"
       shell: bash
     - name: Run Jest tests with coverage
-      run: npx jest --testPathPattern='tests/' --coverage --coverageReporters=lcov
+      run: npx jest --testPathPatterns='tests/' --coverage --coverageReporters=lcov
         --coverageReporters=text
       shell: bash
     - name: Upload coverage report
