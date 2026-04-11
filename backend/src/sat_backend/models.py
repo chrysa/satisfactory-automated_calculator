@@ -52,3 +52,75 @@ class WorldState(BaseModel):
     parsed_at: str = Field(alias="parsedAt")
     buildings: list[Building]
     power_grids: list[PowerGrid] = Field(default_factory=list, alias="powerGrids")
+
+
+# ── KPI models ────────────────────────────────────────────────────────────────
+
+
+class PowerKPIs(BaseModel):
+    """Power balance KPIs derived from all power grids in the save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    produced_mw: float = Field(alias="producedMw")
+    consumed_mw: float = Field(alias="consumedMw")
+    surplus_mw: float = Field(alias="surplusMw")
+    fuse_tripped: bool = Field(alias="fuseTripped")
+    grid_count: int = Field(alias="gridCount")
+
+
+class FactoryKPIs(BaseModel):
+    """Factory-level KPIs: building counts and efficiency."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_buildings: int = Field(alias="totalBuildings")
+    active_buildings: int = Field(alias="activeBuildings")
+    idle_buildings: int = Field(alias="idleBuildings")
+    paused_buildings: int = Field(alias="pausedBuildings")
+    off_buildings: int = Field(alias="offBuildings")
+    efficiency_pct: float = Field(alias="efficiencyPct")
+    somersloops_slotted: int = Field(alias="somersloopsSlotted")
+
+
+class KPIs(BaseModel):
+    """Full KPI snapshot for the latest (or specified) save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_name: str = Field(alias="saveName")
+    save_id: int = Field(alias="saveId")
+    play_time_hours: float = Field(alias="playTimeHours")
+    power: PowerKPIs
+    factory: FactoryKPIs
+
+
+# ── Bottleneck models ─────────────────────────────────────────────────────────
+
+
+class BottleneckSeverity(StrEnum):
+    critical = "critical"
+    warning = "warning"
+    info = "info"
+
+
+class BottleneckType(StrEnum):
+    idle_with_recipe = "idle_with_recipe"
+    underclocked = "underclocked"
+    paused = "paused"
+    fuse_tripped = "fuse_tripped"
+
+
+class Bottleneck(BaseModel):
+    """A single detected production bottleneck."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: BottleneckType
+    severity: BottleneckSeverity
+    class_name: str = Field(alias="className")
+    friendly_name: str = Field(alias="friendlyName")
+    recipe_name: str | None = Field(None, alias="recipeName")
+    floor_id: str | None = Field(None, alias="floorId")
+    overclock: int | None = None
+    message: str
