@@ -4,8 +4,8 @@
   "description": "Tests locaux pour le code GAS S.A.T (sans déploiement)",
   "private": true,
   "scripts": {
-    "test": "jest --testPathPattern='tests/'",
-    "test:watch": "jest --watch --testPathPattern='tests/'",
+    "test": "jest --testPathPatterns='tests/'",
+    "test:watch": "jest --watch --testPathPatterns='tests/'",
     "lint:syntax": "node scripts/check-syntax.js",
     "parse-save": "node scripts/parse-save.js"
   },
