@@ -93,3 +93,34 @@ class KPIs(BaseModel):
     play_time_hours: float = Field(alias="playTimeHours")
     power: PowerKPIs
     factory: FactoryKPIs
+
+
+# ── Bottleneck models ─────────────────────────────────────────────────────────
+
+
+class BottleneckSeverity(StrEnum):
+    critical = "critical"
+    warning = "warning"
+    info = "info"
+
+
+class BottleneckType(StrEnum):
+    idle_with_recipe = "idle_with_recipe"
+    underclocked = "underclocked"
+    paused = "paused"
+    fuse_tripped = "fuse_tripped"
+
+
+class Bottleneck(BaseModel):
+    """A single detected production bottleneck."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: BottleneckType
+    severity: BottleneckSeverity
+    class_name: str = Field(alias="className")
+    friendly_name: str = Field(alias="friendlyName")
+    recipe_name: str | None = Field(None, alias="recipeName")
+    floor_id: str | None = Field(None, alias="floorId")
+    overclock: int | None = None
+    message: str
