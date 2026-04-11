@@ -1,3 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.ruff_cache/
+
 # Google Apps Script / clasp
 .clasp.json
 .clasp.staging.json
