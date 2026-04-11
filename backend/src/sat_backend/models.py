@@ -52,3 +52,44 @@ class WorldState(BaseModel):
     parsed_at: str = Field(alias="parsedAt")
     buildings: list[Building]
     power_grids: list[PowerGrid] = Field(default_factory=list, alias="powerGrids")
+
+
+# ── KPI models ────────────────────────────────────────────────────────────────
+
+
+class PowerKPIs(BaseModel):
+    """Power balance KPIs derived from all power grids in the save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    produced_mw: float = Field(alias="producedMw")
+    consumed_mw: float = Field(alias="consumedMw")
+    surplus_mw: float = Field(alias="surplusMw")
+    fuse_tripped: bool = Field(alias="fuseTripped")
+    grid_count: int = Field(alias="gridCount")
+
+
+class FactoryKPIs(BaseModel):
+    """Factory-level KPIs: building counts and efficiency."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_buildings: int = Field(alias="totalBuildings")
+    active_buildings: int = Field(alias="activeBuildings")
+    idle_buildings: int = Field(alias="idleBuildings")
+    paused_buildings: int = Field(alias="pausedBuildings")
+    off_buildings: int = Field(alias="offBuildings")
+    efficiency_pct: float = Field(alias="efficiencyPct")
+    somersloops_slotted: int = Field(alias="somersloopsSlotted")
+
+
+class KPIs(BaseModel):
+    """Full KPI snapshot for the latest (or specified) save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_name: str = Field(alias="saveName")
+    save_id: int = Field(alias="saveId")
+    play_time_hours: float = Field(alias="playTimeHours")
+    power: PowerKPIs
+    factory: FactoryKPIs

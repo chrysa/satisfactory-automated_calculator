@@ -14,7 +14,13 @@ from sat_backend.config import get_settings
 from sat_backend.db.models import BuildingRecord, WorldStateRecord
 from sat_backend.db.session import get_session
 from sat_backend.extractor import ExtractorError, parse_save
-from sat_backend.models import WorldState
+from sat_backend.models import (
+    BuildingState,
+    FactoryKPIs,
+    KPIs,
+    PowerKPIs,
+    WorldState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,7 @@ app = FastAPI(title="SAT Backend", version="0.1.0")
 )
 async def upload_save(
     file: UploadFile,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> JSONResponse:
     """Upload a Satisfactory .sav file, parse it and store the world state."""
     raw = await file.read()
@@ -103,7 +109,7 @@ async def upload_save(
 
 @app.get("/api/v1/save/latest", response_model=WorldState)
 async def get_latest_save(
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> WorldState:
     """Return the most recently imported world state."""
     record = await session.scalar(
@@ -120,7 +126,7 @@ async def get_latest_save(
 @app.get("/api/v1/save/{save_id}", response_model=WorldState)
 async def get_save(
     save_id: int,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> WorldState:
     """Return a specific world state by its database ID."""
     record = await session.get(WorldStateRecord, save_id)
@@ -139,7 +145,7 @@ async def list_buildings(
     world_id: int | None = None,
     recipe: str | None = None,
     state: str | None = None,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> list[dict]:
     """Query buildings with optional filters."""
     q = select(BuildingRecord)
@@ -165,3 +171,73 @@ async def list_buildings(
         }
         for r in rows
     ]
+
+
+# ── GET /api/v1/kpis ─────────────────────────────────────────────────────────
+
+
+@app.get("/api/v1/kpis", response_model=KPIs)
+async def get_kpis(
+    save_id: int | None = None,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> KPIs:
+    """Return KPI snapshot for the latest save (or a specific save_id).
+
+    KPIs computed:
+    - Power: produced/consumed/surplus MW, fuse state
+    - Factory: building counts by state, global efficiency %, somersloops slotted
+    """
+    if save_id is not None:
+        record = await session.get(WorldStateRecord, save_id)
+    else:
+        record = await session.scalar(
+            select(WorldStateRecord).order_by(WorldStateRecord.parsed_at.desc()).limit(1)
+        )
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saves found")
+
+    state = WorldState.model_validate(record.state_json)
+
+    # ── Power KPIs ────────────────────────────────────────────────────────────
+    total_produced = sum(pg.production for pg in state.power_grids)
+    total_consumed = sum(pg.consumption for pg in state.power_grids)
+    any_fuse       = any(pg.fuse_tripped for pg in state.power_grids)
+
+    power = PowerKPIs(
+        producedMw=round(total_produced, 2),
+        consumedMw=round(total_consumed, 2),
+        surplusMw=round(total_produced - total_consumed, 2),
+        fuseTripped=any_fuse,
+        gridCount=len(state.power_grids),
+    )
+
+    # ── Factory KPIs ──────────────────────────────────────────────────────────
+    active_buildings  = [b for b in state.buildings if b.state == BuildingState.active]
+    idle_buildings    = [b for b in state.buildings if b.state == BuildingState.idle]
+    paused_buildings  = [b for b in state.buildings if b.state == BuildingState.paused]
+    off_buildings     = [b for b in state.buildings if b.state == BuildingState.off]
+    somersloops_total = sum(b.somersloops for b in state.buildings)
+
+    efficiency = (
+        sum(b.overclock for b in active_buildings) / len(active_buildings)
+        if active_buildings
+        else 0.0
+    )
+
+    factory = FactoryKPIs(
+        totalBuildings=len(state.buildings),
+        activeBuildings=len(active_buildings),
+        idleBuildings=len(idle_buildings),
+        pausedBuildings=len(paused_buildings),
+        offBuildings=len(off_buildings),
+        efficiencyPct=round(efficiency, 1),
+        somersloopsSlotted=somersloops_total,
+    )
+
+    return KPIs(
+        saveName=state.save_name,
+        saveId=record.id,
+        playTimeHours=round(state.play_time / 3600, 2),
+        power=power,
+        factory=factory,
+    )
