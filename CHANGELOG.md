@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-56] — 2026-04-12
+
+
+### CI/CD
+
+- Add FUNDING.yml (sponsoring) ([`8c2b657`](8c2b657e63ef4ffdb6957e294c5ead5219415b91))
 ## [3.6.0-55] — 2026-04-12
 
 
