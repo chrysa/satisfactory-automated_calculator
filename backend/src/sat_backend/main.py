@@ -19,6 +19,8 @@ from sat_backend.models import (
     BottleneckSeverity,
     BottleneckType,
     BuildingState,
+    ConsumerGroup,
+    ConsumptionReport,
     EventCategory,
     EventLog,
     FactoryKPIs,
@@ -479,6 +481,81 @@ async def get_bottlenecks(
     bottlenecks.sort(key=lambda x: severity_order[x.severity])
 
     return bottlenecks
+
+
+# ── GET /api/v1/analyze/consumption ──────────────────────────────────────────
+
+
+@app.get("/api/v1/analyze/consumption", response_model=ConsumptionReport)
+async def get_consumption(
+    save_id: int | None = None,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> ConsumptionReport:
+    """Return a power-consumption waste report for the latest (or specified) save.
+
+    For each (machine-type, recipe) group the report provides:
+    - active vs idle building counts
+    - average overclock of active buildings
+    - idle_waste_score: sum of overclock% across idle machines (higher = more wasted capacity)
+    - idle_waste_pct: fraction of the group that is idle
+
+    Groups are sorted by idle_waste_score descending so the biggest wasters appear first.
+    """
+    if save_id is not None:
+        record = await session.get(WorldStateRecord, save_id)
+    else:
+        record = await session.scalar(
+            select(WorldStateRecord).order_by(WorldStateRecord.parsed_at.desc()).limit(1)
+        )
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saves found")
+
+    state = WorldState.model_validate(record.state_json)
+
+    from collections import defaultdict
+
+    groups: dict[tuple, list] = defaultdict(list)
+    for b in state.buildings:
+        groups[(b.class_name, b.recipe)].append(b)
+
+    consumer_groups: list[ConsumerGroup] = []
+    for (class_name, recipe), members in groups.items():
+        active = [b for b in members if b.state == BuildingState.active]
+        idle   = [b for b in members if b.state == BuildingState.idle]
+
+        avg_overclock    = sum(b.overclock for b in active) / len(active) if active else 0.0
+        idle_waste_score = sum(b.overclock for b in idle)
+        idle_waste_pct   = round(len(idle) / len(members) * 100, 1)
+
+        representative = members[0]
+        consumer_groups.append(
+            ConsumerGroup(
+                className=class_name,
+                friendlyName=representative.friendly_name,
+                recipeName=representative.recipe_name if recipe else None,
+                totalCount=len(members),
+                activeCount=len(active),
+                idleCount=len(idle),
+                avgOverclock=round(avg_overclock, 1),
+                idleWasteScore=float(idle_waste_score),
+                idleWastePct=idle_waste_pct,
+            )
+        )
+
+    consumer_groups.sort(key=lambda g: (-g.idle_waste_score, g.class_name))
+
+    total_buildings = len(state.buildings)
+    idle_buildings  = sum(1 for b in state.buildings if b.state == BuildingState.idle)
+    global_idle_pct = round(idle_buildings / total_buildings * 100, 1) if total_buildings else 0.0
+
+    return ConsumptionReport(
+        saveId=record.id,
+        saveName=state.save_name,
+        totalBuildings=total_buildings,
+        idleBuildings=idle_buildings,
+        idleWastePct=global_idle_pct,
+        groups=consumer_groups,
+    )
 
 
 # ── GET /api/v1/events ────────────────────────────────────────────────────────
