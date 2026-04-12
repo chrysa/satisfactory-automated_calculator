@@ -1,7 +1,7 @@
 # ADR-001 — SAT Architecture Decision: Backend Microservice
 
-**Status**: Accepted  
-**Date**: 2026-04-06  
+**Status**: Accepted — Implemented  
+**Date**: 2026-04-06 | **Implemented**: 2026-04-12  
 **Issue**: [#24](https://github.com/chrysa/satisfactory-automated_calculator/issues/24)  
 **Milestone**: M-ARCH Architecture & Platform
 
@@ -83,14 +83,19 @@ Satisfactory game
 
 ## Implementation plan
 
-1. **M-SA** ([#28](https://github.com/chrysa/satisfactory-automated_calculator/issues/28)) —
-   Save analysis: finalise parser integration, define JSON world state schema, build ingestion pipeline.
-2. **M-NL** ([#29](https://github.com/chrysa/satisfactory-automated_calculator/issues/29),
+1. ✅ **M-SA** ([#28](https://github.com/chrysa/satisfactory-automated_calculator/issues/28)) —
+   Save analysis: parser integration (`parse-save-json.js`), WorldState schema,
+   ingestion pipeline, KPIs, bottleneck detection.
+2. ✅ **M-OPT** ([#34](https://github.com/chrysa/satisfactory-automated_calculator/issues/34)) —
+   Consumption optimizer: power-waste ranking, idle-machine detection.
+3. ✅ **M-LOG** ([#37](https://github.com/chrysa/satisfactory-automated_calculator/issues/37)) —
+   Event logging: save-diff (machine_added/removed, recipe_changed, power_grid_changed),
+   `event_logs` table, query endpoints.
+4. **M-NL** ([#29](https://github.com/chrysa/satisfactory-automated_calculator/issues/29),
    [#30](https://github.com/chrysa/satisfactory-automated_calculator/issues/30)) —
-   NL question-answering engine and action-plan generator.
-3. **M-NL** ([#31](https://github.com/chrysa/satisfactory-automated_calculator/issues/31)) —
-   Notification center + NL assistant client.
-4. **M-OPT** / **M-LOG** — Production optimization and logging (post-MVP).
+   NL question-answering engine and action-plan generator. _(pending)_
+5. **M-NL** ([#31](https://github.com/chrysa/satisfactory-automated_calculator/issues/31)) —
+   Notification center + NL assistant client. _(pending)_
 
 ---
 

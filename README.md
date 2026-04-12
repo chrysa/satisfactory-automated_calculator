@@ -14,6 +14,8 @@
 
 A production calculator for Satisfactory, built on Google Sheets / Apps Script. Enter recipes by name, get automatic rate calculations, intelligent alerts, and a real-time dashboard.
 
+The project also ships a **Python FastAPI backend** that ingests `.sav` files, stores world state in PostgreSQL, and exposes REST endpoints for factory analysis, bottleneck detection and session diffing.
+
 ---
 
 ## 📦 Project Structure
@@ -34,9 +36,22 @@ satisfactory-automated_calculator/
 │   ├── 50_assistant.gs              ← Smart assistant (bottlenecks, OC, belts, power, phases)
 │   ├── 51_import.gs                 ← Server: receive parsed rows → Production sheet
 │   └── 51_import_ui.html            ← Sidebar: browser-side .sav parsing (esm.sh CDN)
+├── backend/                         ← Python FastAPI backend (save analysis API)
+│   ├── src/sat_backend/
+│   │   ├── main.py                  ← FastAPI app, all endpoints
+│   │   ├── models.py                ← Pydantic schemas (WorldState, KPIs, Bottleneck…)
+│   │   ├── config.py                ← Settings (env vars, SAT_ prefix)
+│   │   ├── extractor.py             ← .sav → WorldState via Node.js subprocess
+│   │   └── db/                      ← SQLAlchemy models + async session
+│   ├── alembic/                     ← DB migrations (001 schema, 002 event logs)
+│   ├── Dockerfile                   ← Python 3.12 + Node.js 22 image
+│   └── pyproject.toml
 ├── scripts/
 │   ├── parse-save.js                ← CLI: .sav → production CSV + collectibles report
+│   ├── parse-save-json.js           ← .sav → JSON WorldState (called by FastAPI)
 │   └── explore-*.js                 ← Diagnostic scripts (not deployed)
+├── docker-compose.yml               ← One-command local stack (PostgreSQL + API)
+├── sat_watcher.py                   ← Local .sav polling service (auto-upload on save)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                   ← CI: lint + pre-commit + tests (all PRs and pushes to main)
@@ -59,6 +74,66 @@ satisfactory-automated_calculator/
 ├── package.json                     ← Node.js dev dependencies (Jest, clasp)
 └── .gitignore
 ```
+
+---
+
+## 🐍 Backend API
+
+The Python backend runs alongside Google Sheets as an independent REST service.
+It parses `.sav` files via a Node.js subprocess, stores world state in PostgreSQL,
+and exposes analysis endpoints (KPIs, bottlenecks, consumption, event log).
+
+### One-command start (Docker)
+
+```bash
+docker compose up --build
+```
+
+| Service | URL | Description |
+|---|---|---|
+| API | http://localhost:8000 | FastAPI |
+| Swagger UI | http://localhost:8000/docs | Interactive docs |
+| ReDoc | http://localhost:8000/redoc | Alternative docs |
+| PostgreSQL | localhost:5432 | DB (user/pass: `sat`) |
+
+### API endpoints
+
+| Method | Path | Tag | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/save/upload` | saves | Upload a `.sav` — parse, deduplicate, diff |
+| `GET` | `/api/v1/save/latest` | saves | Full world state of the latest save |
+| `GET` | `/api/v1/save/{id}` | saves | World state by save ID |
+| `GET` | `/api/v1/buildings` | buildings | Building list (filterable by world_id / recipe / state) |
+| `GET` | `/api/v1/kpis` | kpis | Power + factory KPI snapshot |
+| `GET` | `/api/v1/analyze/bottlenecks` | analysis | Idle / underclocked / fuse bottleneck detector |
+| `GET` | `/api/v1/analyze/consumption` | analysis | Power waste ranking by machine group |
+| `GET` | `/api/v1/events` | events | Event log (filterable by category / type / save) |
+| `GET` | `/api/v1/events/diff/{id}` | events | Diff events generated at upload time |
+
+### Architecture
+
+```
+.sav binary
+    └── POST /api/v1/save/upload
+            └── Node.js subprocess (scripts/parse-save-json.js)
+                    └── JSON WorldState
+                            ├── PostgreSQL (world_states, buildings, event_logs)
+                            └── REST analysis endpoints
+```
+
+### Local development (without Docker)
+
+```bash
+# Requires Python 3.12, Node.js 22, PostgreSQL 16
+psql -U postgres -c "CREATE USER sat WITH PASSWORD 'sat'; CREATE DATABASE sat OWNER sat;"
+pip install -e "backend"
+cd backend
+SAT_DATABASE_URL="postgresql+asyncpg://sat:sat@localhost:5432/sat" python -m alembic upgrade head
+SAT_DATABASE_URL="postgresql+asyncpg://sat:sat@localhost:5432/sat" \
+  python -m uvicorn sat_backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+> Full API reference: **[docs/backend-api.md](docs/backend-api.md)**
 
 ---
 
@@ -282,6 +357,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 |------|---------|
 | [GUIDE.md](GUIDE.md) | End-user guide (sheets, formulas, import, assistant) |
 | [COPILOT_GUIDE.md](COPILOT_GUIDE.md) | Code patterns, templates, workflows for developers |
+| [docs/backend-api.md](docs/backend-api.md) | Full backend API reference (endpoints, data model, Docker) |
+| [docs/ADR-001-architecture.md](docs/ADR-001-architecture.md) | Architecture decision record (GAS + FastAPI) |
 | [CHANGELOG.md](CHANGELOG.md) | Auto-generated version history |
 
 ---
@@ -294,7 +371,9 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 | Recipes | 67 official Satisfactory 1.1 recipes |
 | Machines | 18 machines with dimensions and MW |
 | Resources | 95 classified resources |
-| External dependencies | Zero runtime dependencies (CDN only for .sav import) |
+| GAS runtime dependencies | Zero (CDN only for .sav import sidebar) |
+| Backend API endpoints | 9 (saves, buildings, KPIs, analysis, events) |
+| DB tables | 3 (`world_states`, `buildings`, `event_logs`) |
 
 ---
 
