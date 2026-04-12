@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sat_backend.config import get_settings
-from sat_backend.db.models import BuildingRecord, WorldStateRecord
+from sat_backend.db.models import BuildingRecord, EventLogRecord, WorldStateRecord
 from sat_backend.db.session import get_session
 from sat_backend.extractor import ExtractorError, parse_save
 from sat_backend.models import (
@@ -19,6 +19,8 @@ from sat_backend.models import (
     BottleneckSeverity,
     BottleneckType,
     BuildingState,
+    EventCategory,
+    EventLog,
     FactoryKPIs,
     KPIs,
     PowerKPIs,
@@ -99,12 +101,136 @@ async def upload_save(
         for b in world_state.buildings
     ]
     session.add_all(buildings)
+
+    # ── Compute save-diff vs previous save ────────────────────────────────────
+    prev_record = await session.scalar(
+        select(WorldStateRecord)
+        .where(WorldStateRecord.id != record.id)
+        .order_by(WorldStateRecord.parsed_at.desc())
+        .limit(1)
+    )
+    if prev_record is not None:
+        events = _diff_world_states(
+            record.id,
+            WorldState.model_validate(prev_record.state_json),
+            world_state,
+        )
+        session.add_all(events)
+
     await session.commit()
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={"id": record.id, "save_name": record.save_name},
     )
+
+
+# ── Save-diff helper ─────────────────────────────────────────────────────────
+
+
+def _building_key(b: object) -> tuple:
+    """Stable key: (class_name, rounded x/y/z location)."""
+    return (b.class_name, round(b.location.x, 0), round(b.location.y, 0), round(b.location.z, 0))  # type: ignore[attr-defined]
+
+
+def _diff_world_states(
+    new_save_id: int,
+    prev: WorldState,
+    curr: WorldState,
+) -> list[EventLogRecord]:
+    """Return EventLogRecord instances capturing the diff between two world states."""
+    prev_map = {_building_key(b): b for b in prev.buildings}
+    curr_map = {_building_key(b): b for b in curr.buildings}
+
+    prev_keys = set(prev_map)
+    curr_keys = set(curr_map)
+
+    events: list[EventLogRecord] = []
+
+    for key in curr_keys - prev_keys:
+        b = curr_map[key]
+        events.append(
+            EventLogRecord(
+                save_id=new_save_id,
+                category=EventCategory.construction,
+                event_type="machine_added",
+                payload={
+                    "className": b.class_name,
+                    "friendlyName": b.friendly_name,
+                    "recipe": b.recipe,
+                    "floorId": b.floor_id,
+                    "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
+                },
+            )
+        )
+
+    for key in prev_keys - curr_keys:
+        b = prev_map[key]
+        events.append(
+            EventLogRecord(
+                save_id=new_save_id,
+                category=EventCategory.construction,
+                event_type="machine_removed",
+                payload={
+                    "className": b.class_name,
+                    "friendlyName": b.friendly_name,
+                    "recipe": b.recipe,
+                    "floorId": b.floor_id,
+                    "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
+                },
+            )
+        )
+
+    for key in prev_keys & curr_keys:
+        pb, cb = prev_map[key], curr_map[key]
+        if pb.recipe != cb.recipe:
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="recipe_changed",
+                    payload={
+                        "className": cb.class_name,
+                        "friendlyName": cb.friendly_name,
+                        "floorId": cb.floor_id,
+                        "previousRecipe": pb.recipe,
+                        "newRecipe": cb.recipe,
+                        "location": {"x": cb.location.x, "y": cb.location.y, "z": cb.location.z},
+                    },
+                )
+            )
+
+    # Power grid changes
+    prev_grids = {pg.id: pg for pg in prev.power_grids}
+    curr_grids = {pg.id: pg for pg in curr.power_grids}
+    for gid, cpg in curr_grids.items():
+        ppg = prev_grids.get(gid)
+        if ppg is None:
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="power_grid_added",
+                    payload={"gridId": gid, "productionMw": cpg.production, "consumptionMw": cpg.consumption},
+                )
+            )
+        elif abs(cpg.production - ppg.production) > 0.5 or abs(cpg.consumption - ppg.consumption) > 0.5:
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="power_grid_changed",
+                    payload={
+                        "gridId": gid,
+                        "prevProductionMw": ppg.production,
+                        "newProductionMw": cpg.production,
+                        "prevConsumptionMw": ppg.consumption,
+                        "newConsumptionMw": cpg.consumption,
+                    },
+                )
+            )
+
+    return events
 
 
 # ── GET /api/v1/save/latest ──────────────────────────────────────────────────
@@ -353,3 +479,89 @@ async def get_bottlenecks(
     bottlenecks.sort(key=lambda x: severity_order[x.severity])
 
     return bottlenecks
+
+
+# ── GET /api/v1/events ────────────────────────────────────────────────────────
+
+
+@app.get("/api/v1/events", response_model=list[EventLog])
+async def list_events(
+    save_id: int | None = None,
+    category: EventCategory | None = None,
+    event_type: str | None = None,
+    limit: int = 100,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> list[EventLog]:
+    """Query the event log with optional filters.
+
+    Useful NL queries this supports:
+    - "What did I build last session?" → category=construction, event_type=machine_added
+    - "What recipes changed?" → event_type=recipe_changed
+    - "What happened in save 5?" → save_id=5
+    """
+    q = select(EventLogRecord).order_by(EventLogRecord.occurred_at.desc()).limit(limit)
+    if save_id is not None:
+        q = q.where(EventLogRecord.save_id == save_id)
+    if category is not None:
+        q = q.where(EventLogRecord.category == category.value)
+    if event_type is not None:
+        q = q.where(EventLogRecord.event_type == event_type)
+
+    rows = (await session.scalars(q)).all()
+    return [
+        EventLog(
+            id=r.id,
+            saveId=r.save_id,
+            category=r.category,
+            eventType=r.event_type,
+            payload=r.payload,
+            occurredAt=r.occurred_at,
+        )
+        for r in rows
+    ]
+
+
+# ── GET /api/v1/events/diff/{save_id} ────────────────────────────────────────
+
+
+@app.get("/api/v1/events/diff/{save_id}", response_model=list[EventLog])
+async def get_save_diff(
+    save_id: int,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> list[EventLog]:
+    """Return the diff events computed when save_id was uploaded.
+
+    These events represent what changed since the previous save
+    (machines added/removed, recipes changed, power grid changes).
+    """
+    record = await session.get(WorldStateRecord, save_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Save {save_id} not found"
+        )
+
+    rows = (
+        await session.scalars(
+            select(EventLogRecord)
+            .where(EventLogRecord.save_id == save_id)
+            .where(
+                EventLogRecord.category.in_([
+                    EventCategory.construction.value,
+                    EventCategory.state_change.value,
+                ])
+            )
+            .order_by(EventLogRecord.occurred_at.asc())
+        )
+    ).all()
+
+    return [
+        EventLog(
+            id=r.id,
+            saveId=r.save_id,
+            category=r.category,
+            eventType=r.event_type,
+            payload=r.payload,
+            occurredAt=r.occurred_at,
+        )
+        for r in rows
+    ]

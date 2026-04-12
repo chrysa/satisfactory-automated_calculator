@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -124,3 +125,27 @@ class Bottleneck(BaseModel):
     floor_id: str | None = Field(None, alias="floorId")
     overclock: int | None = None
     message: str
+
+
+# ── Event log models ──────────────────────────────────────────────────────────
+
+
+class EventCategory(StrEnum):
+    state_change = "state_change"
+    construction = "construction"
+    unlock = "unlock"
+    objective = "objective"
+    recommendation = "recommendation"
+
+
+class EventLog(BaseModel):
+    """A single logged event returned by the API."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    save_id: int = Field(alias="saveId")
+    category: EventCategory
+    event_type: str = Field(alias="eventType")
+    payload: dict
+    occurred_at: datetime = Field(alias="occurredAt")
