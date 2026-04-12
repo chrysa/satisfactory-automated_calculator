@@ -6,6 +6,34 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# ── Upload / query response models ───────────────────────────────────────────
+
+
+class UploadResult(BaseModel):
+    """Response from POST /api/v1/save/upload."""
+
+    id: int = Field(description="Database ID of the imported (or existing) save.")
+    save_name: str | None = Field(None, description="Name of the save file.")
+    detail: str | None = Field(None, description="Set to 'already imported' when deduplicated.")
+
+
+class BuildingRow(BaseModel):
+    """Flat DB row returned by GET /api/v1/buildings."""
+
+    id: int
+    world_id: int
+    class_name: str
+    friendly_name: str | None = None
+    state: str | None = None
+    overclock: int | None = None
+    recipe: str | None = None
+    floor_id: str | None = None
+    somersloops: int = 0
+
+
+# ── World-state models ────────────────────────────────────────────────────────
+
+
 class Location(BaseModel):
     x: float = 0.0
     y: float = 0.0
