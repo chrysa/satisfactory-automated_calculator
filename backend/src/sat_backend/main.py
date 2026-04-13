@@ -20,12 +20,66 @@ from sat_backend.models import (
     BottleneckType,
     BuildingState,
     FactoryKPIs,
+    FicsitEntry,
+    FicsitReport,
     KPIs,
     PowerKPIs,
     WorldState,
 )
 
 logger = logging.getLogger(__name__)
+
+# ── Static AWESOME Sink point data (Satisfactory 1.1) ────────────────────────
+# recipe_class → (output_item_name, sink_pts_per_item, base_output_rate/min at OC=100%)
+# Source: https://satisfactory.wiki.gg/wiki/AWESOME_Sink
+_SINK_DATA: dict[str, tuple[str, int, float]] = {
+    # Smelter
+    "Recipe_IronIngot_C":               ("Iron Ingot",                2,   30.0),
+    "Recipe_CopperIngot_C":             ("Copper Ingot",               6,   30.0),
+    "Recipe_CateriumIngot_C":           ("Caterium Ingot",            15,   15.0),
+    "Recipe_AluminumIngot_C":           ("Aluminum Ingot",             8,   60.0),
+    # Constructor
+    "Recipe_IronPlate_C":               ("Iron Plate",                 6,   20.0),
+    "Recipe_IronRod_C":                 ("Iron Rod",                   4,   15.0),
+    "Recipe_Screw_C":                   ("Screw",                      2,   40.0),
+    "Recipe_Wire_C":                    ("Wire",                       6,   30.0),
+    "Recipe_Cable_C":                   ("Cable",                     24,   30.0),
+    "Recipe_Concrete_C":                ("Concrete",                  12,   45.0),
+    "Recipe_Quickwire_C":               ("Quickwire",                  5,   60.0),
+    "Recipe_Silica_C":                  ("Silica",                    10,   37.5),
+    "Recipe_CopperSheet_C":             ("Copper Sheet",              24,   10.0),
+    "Recipe_SteelBeam_C":               ("Steel Beam",                24,   15.0),
+    "Recipe_SteelPipe_C":               ("Steel Pipe",                24,   20.0),
+    "Recipe_AluminumCasing_C":          ("Aluminum Casing",           35,   60.0),
+    # Assembler
+    "Recipe_ReinforcedIronPlate_C":     ("Reinforced Iron Plate",    120,    5.0),
+    "Recipe_Rotor_C":                   ("Rotor",                    140,    4.0),
+    "Recipe_ModularFrame_C":            ("Modular Frame",            408,    2.0),
+    "Recipe_EncasedIndustrialBeam_C":   ("Encased Industrial Beam",  480,    6.0),
+    "Recipe_Motor_C":                   ("Motor",                   1520,    5.0),
+    "Recipe_CircuitBoard_C":            ("Circuit Board",            696,    7.5),
+    "Recipe_AILimiter_C":               ("AI Limiter",               920,    5.0),
+    "Recipe_AlcladAluminumSheet_C":     ("Alclad Aluminum Sheet",    266,   30.0),
+    "Recipe_HeatSink_C":                ("Heat Sink",                322,   10.0),
+    # Manufacturer
+    "Recipe_Computer_C":                ("Computer",               17260,    2.5),
+    "Recipe_Supercomputer_C":           ("Supercomputer",          99576,    0.25),
+    "Recipe_HighSpeedConnector_C":      ("High-Speed Connector",    3776,    3.75),
+    "Recipe_ModularFrameHeavy_C":       ("Heavy Modular Frame",     3696,    2.0),
+    "Recipe_TurboMotor_C":              ("Turbo Motor",            276900,   1.875),
+    "Recipe_RadioControlUnit_C":        ("Radio Control Unit",      15760,   2.5),
+    "Recipe_CoolingSystem_C":           ("Cooling System",          44720,   6.0),
+    # Blender / Refinery
+    "Recipe_Rubber_C":                  ("Rubber",                     6,   20.0),
+    "Recipe_Plastic_C":                 ("Plastic",                    6,   20.0),
+    "Recipe_PackagedWater_C":           ("Packaged Water",             7,   60.0),
+}
+
+# AWESOME Sink building class names
+_AWESOME_SINK_CLASSES: frozenset[str] = frozenset({
+    "Build_ResourceSink_C",
+    "Build_AwesomeSink_C",
+})
 
 app = FastAPI(title="SAT Backend", version="0.1.0")
 
@@ -353,3 +407,110 @@ async def get_bottlenecks(
     bottlenecks.sort(key=lambda x: severity_order[x.severity])
 
     return bottlenecks
+
+
+# ── GET /api/v1/analyze/ficsit ────────────────────────────────────────────────
+
+
+@app.get("/api/v1/analyze/ficsit", response_model=FicsitReport)
+async def get_ficsit(
+    save_id: int | None = None,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> FicsitReport:
+    """AWESOME Sink / FICSIT ticket optimisation report.
+
+    Groups active buildings by (machine-type × recipe) and estimates AWESOME Sink
+    points/min using embedded Satisfactory 1.1 sink-point data.
+
+    **Estimation formula per group**:
+    ```
+    points/min = sink_pts_per_item × base_output_rate
+                 × (avg_overclock / 100)
+                 × (1 + somersloops_in_group)
+    ```
+
+    - Groups are ranked by estimated points/min descending (highest yield first).
+    - `estPointsPerMin` is `null` for recipes not in the static lookup table.
+    - AWESOME Sink buildings are counted separately (they consume items, not produce them).
+
+    **Somersloops** double output (×2), which directly doubles sink points/min for the group.
+    """
+    from collections import defaultdict
+
+    if save_id is not None:
+        record = await session.get(WorldStateRecord, save_id)
+    else:
+        record = await session.scalar(
+            select(WorldStateRecord).order_by(WorldStateRecord.parsed_at.desc()).limit(1)
+        )
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saves found")
+
+    state = WorldState.model_validate(record.state_json)
+
+    # Count AWESOME Sink buildings (they receive items — not producers)
+    sink_count = sum(
+        1 for b in state.buildings
+        if any(cls in b.class_name for cls in _AWESOME_SINK_CLASSES)
+    )
+
+    # Group active + idle buildings by (class_name, recipe), exclude sinks
+    groups: dict[tuple, list] = defaultdict(list)
+    for b in state.buildings:
+        if any(cls in b.class_name for cls in _AWESOME_SINK_CLASSES):
+            continue
+        if b.state in (BuildingState.active, BuildingState.idle):
+            groups[(b.class_name, b.recipe)].append(b)
+
+    entries: list[FicsitEntry] = []
+    unknown_recipes = 0
+
+    for (class_name, recipe), members in groups.items():
+        active  = [b for b in members if b.state == BuildingState.active]
+        if not active:
+            continue
+
+        avg_oc      = sum(b.overclock for b in active) / len(active)
+        total_loops = sum(b.somersloops for b in active)
+
+        sink_row = _SINK_DATA.get(recipe) if recipe else None
+
+        if sink_row:
+            output_item, pts_per_item, base_rate = sink_row
+            # Somersloops double output (×2 per slotted machine)
+            loop_multiplier = 1.0 + total_loops
+            est_pts = pts_per_item * base_rate * len(active) * (avg_oc / 100) * loop_multiplier
+        else:
+            output_item = None
+            pts_per_item = None
+            est_pts = None
+            if recipe:
+                unknown_recipes += 1
+
+        representative = members[0]
+        entries.append(FicsitEntry(
+            className=class_name,
+            friendlyName=representative.friendly_name,
+            recipeName=representative.recipe_name,
+            machineCount=len(members),
+            activeCount=len(active),
+            avgOverclock=round(avg_oc, 1),
+            somersloops=total_loops,
+            estPointsPerMin=round(est_pts, 1) if est_pts is not None else None,
+            outputItem=output_item,
+            sinkPtsPerItem=pts_per_item,
+        ))
+
+    # Sort: known recipes by points desc, then unknowns (None) at the bottom
+    entries.sort(key=lambda e: (e.est_points_per_min is None, -(e.est_points_per_min or 0)))
+
+    total_pts = sum(e.est_points_per_min for e in entries if e.est_points_per_min is not None)
+
+    return FicsitReport(
+        saveId=record.id,
+        saveName=state.save_name,
+        awesomeSinkCount=sink_count,
+        totalEstPointsPerMin=round(total_pts, 1),
+        entries=entries,
+        unknownRecipes=unknown_recipes,
+    )

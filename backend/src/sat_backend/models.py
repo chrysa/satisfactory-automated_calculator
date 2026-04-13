@@ -124,3 +124,59 @@ class Bottleneck(BaseModel):
     floor_id: str | None = Field(None, alias="floorId")
     overclock: int | None = None
     message: str
+
+
+# ── FICSIT optimizer models ───────────────────────────────────────────────────
+
+
+class FicsitEntry(BaseModel):
+    """Estimated AWESOME Sink output for one (machine-type × recipe) group."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    class_name: str = Field(alias="className")
+    friendly_name: str = Field(alias="friendlyName")
+    recipe_name: str | None = Field(None, alias="recipeName")
+    machine_count: int = Field(alias="machineCount")
+    active_count: int = Field(alias="activeCount")
+    avg_overclock: float = Field(alias="avgOverclock")
+    somersloops: int = Field(description="Total somersloops slotted across all machines in this group.")
+    est_points_per_min: float | None = Field(
+        None,
+        alias="estPointsPerMin",
+        description="Estimated AWESOME Sink points/min. Null when recipe not in static lookup.",
+    )
+    output_item: str | None = Field(
+        None,
+        alias="outputItem",
+        description="Primary sinkable output item name (from static lookup).",
+    )
+    sink_pts_per_item: int | None = Field(
+        None,
+        alias="sinkPtsPerItem",
+        description="AWESOME Sink point value per item unit.",
+    )
+
+
+class FicsitReport(BaseModel):
+    """Full FICSIT / AWESOME Sink optimisation report."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_id: int = Field(alias="saveId")
+    save_name: str = Field(alias="saveName")
+    awesome_sink_count: int = Field(
+        alias="awesomeSinkCount",
+        description="Number of AWESOME Sink buildings detected in the save.",
+    )
+    total_est_points_per_min: float = Field(
+        alias="totalEstPointsPerMin",
+        description="Sum of estimated points/min across all known recipe groups.",
+    )
+    entries: list[FicsitEntry] = Field(
+        description="Groups ranked by estimated points/min descending."
+    )
+    unknown_recipes: int = Field(
+        alias="unknownRecipes",
+        description="Number of active recipe groups not in the static sink-point lookup.",
+    )
