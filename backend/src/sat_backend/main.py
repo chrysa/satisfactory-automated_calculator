@@ -22,6 +22,10 @@ from sat_backend.models import (
     FactoryKPIs,
     KPIs,
     PowerKPIs,
+    Recommendation,
+    RecommendationCategory,
+    RecommendationReport,
+    RecommendationUrgency,
     WorldState,
 )
 
@@ -353,3 +357,222 @@ async def get_bottlenecks(
     bottlenecks.sort(key=lambda x: severity_order[x.severity])
 
     return bottlenecks
+
+
+# ── Recommendation engine helper ──────────────────────────────────────────────
+
+_URGENCY_ORDER = {
+    RecommendationUrgency.foundational: 0,
+    RecommendationUrgency.urgent:       1,
+    RecommendationUrgency.optional:     2,
+    RecommendationUrgency.future:       3,
+}
+
+
+def _build_recommendations(state: WorldState, overclock_threshold: int = 70) -> list[Recommendation]:
+    """Synthesise factory-wide recommendations from a WorldState."""
+    recs: list[Recommendation] = []
+
+    # ── Power analysis ────────────────────────────────────────────────────────
+    total_produced = sum(pg.production for pg in state.power_grids)
+    total_consumed = sum(pg.consumption for pg in state.power_grids)
+    surplus        = total_produced - total_consumed
+    tripped_grids  = [pg for pg in state.power_grids if pg.fuse_tripped]
+
+    for pg in tripped_grids:
+        recs.append(Recommendation(
+            urgency=RecommendationUrgency.foundational,
+            category=RecommendationCategory.power,
+            title=f"Fuse tripped — power grid #{pg.id}",
+            message=(
+                f"Grid #{pg.id} fuse has tripped: {pg.consumption:.0f} MW consumed "
+                f"but only {pg.production:.0f} MW produced "
+                f"({pg.consumption - pg.production:.0f} MW deficit). "
+                "Add generators or shut down non-essential machines immediately."
+            ),
+            trigger="fuse_tripped",
+            affected=[f"PowerGrid#{pg.id}"],
+        ))
+
+    if total_produced > 0 and not tripped_grids:
+        surplus_pct = surplus / total_produced * 100
+        if surplus_pct < 10:
+            recs.append(Recommendation(
+                urgency=RecommendationUrgency.urgent,
+                category=RecommendationCategory.power,
+                title=f"Power margin critical ({surplus_pct:.1f}% free)",
+                message=(
+                    f"Only {surplus:.0f} MW of headroom out of {total_produced:.0f} MW produced. "
+                    "Any new machine risk tripping the fuse. Add generators before expanding."
+                ),
+                trigger="low_power_margin",
+                affected=[f"PowerGrid#{pg.id}" for pg in state.power_grids],
+            ))
+        elif surplus_pct < 25:
+            recs.append(Recommendation(
+                urgency=RecommendationUrgency.optional,
+                category=RecommendationCategory.power,
+                title=f"Power margin below 25% ({surplus_pct:.1f}% free)",
+                message=(
+                    f"{surplus:.0f} MW free out of {total_produced:.0f} MW. "
+                    "Consider adding generators before the next factory expansion."
+                ),
+                trigger="low_power_margin",
+                affected=[f"PowerGrid#{pg.id}" for pg in state.power_grids],
+            ))
+
+    # ── Production analysis ───────────────────────────────────────────────────
+    active  = [b for b in state.buildings if b.state == BuildingState.active]
+    idle    = [b for b in state.buildings if b.state == BuildingState.idle]
+    paused  = [b for b in state.buildings if b.state == BuildingState.paused]
+    total   = len(state.buildings)
+
+    idle_with_recipe   = [b for b in idle   if b.recipe]
+    paused_with_recipe = [b for b in paused if b.recipe]
+
+    if idle_with_recipe:
+        idle_pct  = len(idle_with_recipe) / total * 100 if total else 0
+        urgency   = (
+            RecommendationUrgency.foundational if idle_pct > 20
+            else RecommendationUrgency.urgent
+        )
+        floors    = sorted({b.floor_id for b in idle_with_recipe if b.floor_id})
+        recs.append(Recommendation(
+            urgency=urgency,
+            category=RecommendationCategory.production,
+            title=f"{len(idle_with_recipe)} machine(s) starved of input",
+            message=(
+                f"{len(idle_with_recipe)} machines have a recipe set but are idle — "
+                "they are not receiving required input resources. "
+                "Trace conveyor/pipe connections and check upstream production rates."
+            ),
+            trigger="idle_with_recipe",
+            affected=(floors if floors else [b.class_name for b in idle_with_recipe[:8]]),
+        ))
+
+    if paused_with_recipe:
+        recs.append(Recommendation(
+            urgency=RecommendationUrgency.optional,
+            category=RecommendationCategory.production,
+            title=f"{len(paused_with_recipe)} machine(s) paused",
+            message=(
+                f"{len(paused_with_recipe)} machines are explicitly paused while having a recipe. "
+                "Resume them if they should be part of an active chain."
+            ),
+            trigger="paused_machines",
+            affected=sorted({b.floor_id or b.class_name for b in paused_with_recipe})[:8],
+        ))
+
+    # ── Efficiency analysis ───────────────────────────────────────────────────
+    if active:
+        avg_oc      = sum(b.overclock for b in active) / len(active)
+        underclocked = [b for b in active if b.overclock < overclock_threshold]
+
+        if avg_oc < 50:
+            recs.append(Recommendation(
+                urgency=RecommendationUrgency.urgent,
+                category=RecommendationCategory.efficiency,
+                title=f"Global efficiency very low ({avg_oc:.0f}%)",
+                message=(
+                    f"Active machines average only {avg_oc:.0f}% clock speed. "
+                    "This may indicate intentional throttling or severe input constraints "
+                    "across the entire factory."
+                ),
+                trigger="low_global_efficiency",
+                affected=[],
+            ))
+        elif underclocked:
+            affected_classes = sorted({b.class_name for b in underclocked})[:6]
+            recs.append(Recommendation(
+                urgency=RecommendationUrgency.optional,
+                category=RecommendationCategory.efficiency,
+                title=f"{len(underclocked)} machine(s) underclocked below {overclock_threshold}%",
+                message=(
+                    f"{len(underclocked)} active machines run below {overclock_threshold}% clock speed. "
+                    "Check whether these are intentionally throttled; otherwise improving "
+                    "input supply would allow running them at full speed."
+                ),
+                trigger="underclocked",
+                affected=affected_classes,
+            ))
+
+    # ── Progression / all-clear ───────────────────────────────────────────────
+    somersloops_active = sum(b.somersloops for b in active)
+    machines_no_loop   = [b for b in active if b.somersloops == 0]
+    if somersloops_active > 0 and machines_no_loop:
+        recs.append(Recommendation(
+            urgency=RecommendationUrgency.future,
+            category=RecommendationCategory.efficiency,
+            title="Somersloop slots available on key machines",
+            message=(
+                f"You have somersloops installed on some machines ({somersloops_active} total). "
+                f"{len(machines_no_loop)} active machines have no somersloop — "
+                "prioritise high-throughput bottleneck machines for the next slots."
+            ),
+            trigger="somersloop_opportunity",
+            affected=[],
+        ))
+
+    if not recs:
+        avg_oc_str = f"{sum(b.overclock for b in active) / len(active):.0f}%" if active else "N/A"
+        recs.append(Recommendation(
+            urgency=RecommendationUrgency.future,
+            category=RecommendationCategory.progression,
+            title="Factory healthy — ready to expand",
+            message=(
+                f"No critical issues detected. "
+                f"Power surplus: {surplus:.0f} MW. "
+                f"Global efficiency: {avg_oc_str}. "
+                "Consider expanding production capacity or progressing to the next Space Elevator phase."
+            ),
+            trigger="healthy_factory",
+            affected=[],
+        ))
+
+    recs.sort(key=lambda r: _URGENCY_ORDER[r.urgency])
+    return recs
+
+
+# ── GET /api/v1/analyze/recommendations ──────────────────────────────────────
+
+
+@app.get("/api/v1/analyze/recommendations", response_model=RecommendationReport)
+async def get_recommendations(
+    save_id: int | None = None,
+    overclock_threshold: int = 70,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> RecommendationReport:
+    """Generate a prioritised recommendation report for the latest (or specified) save.
+
+    Synthesises power, production, and efficiency data into urgency-ranked recommendations:
+
+    | Urgency | Meaning |
+    |---|---|
+    | `foundational` | Blocks everything — fix immediately (fuse trip, mass starvation) |
+    | `urgent` | Will cause problems soon (low power margin, many idle machines) |
+    | `optional` | Improvement opportunity (underclocked machines, paused lines) |
+    | `future` | Long-term suggestion or all-clear |
+
+    Results are sorted foundational → urgent → optional → future.
+    """
+    from datetime import datetime, timezone
+
+    if save_id is not None:
+        record = await session.get(WorldStateRecord, save_id)
+    else:
+        record = await session.scalar(
+            select(WorldStateRecord).order_by(WorldStateRecord.parsed_at.desc()).limit(1)
+        )
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saves found")
+
+    state = WorldState.model_validate(record.state_json)
+    recs  = _build_recommendations(state, overclock_threshold=overclock_threshold)
+
+    return RecommendationReport(
+        saveId=record.id,
+        saveName=state.save_name,
+        generatedAt=datetime.now(tz=timezone.utc),
+        totalBuildings=len(state.buildings),
+        recommendations=recs,
+    )

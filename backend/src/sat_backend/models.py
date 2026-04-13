@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -124,3 +125,50 @@ class Bottleneck(BaseModel):
     floor_id: str | None = Field(None, alias="floorId")
     overclock: int | None = None
     message: str
+
+
+# ── Recommendation engine models ──────────────────────────────────────────────
+
+
+class RecommendationUrgency(StrEnum):
+    foundational = "foundational"  # blocks everything — fix now
+    urgent = "urgent"              # will cause problems soon
+    optional = "optional"          # improvement opportunity
+    future = "future"              # long-term / all-clear
+
+
+class RecommendationCategory(StrEnum):
+    power = "power"
+    production = "production"
+    efficiency = "efficiency"
+    progression = "progression"
+
+
+class Recommendation(BaseModel):
+    """A single actionable recommendation derived from factory analysis."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    urgency: RecommendationUrgency
+    category: RecommendationCategory
+    title: str
+    message: str
+    trigger: str = Field(description="Machine-readable event that triggered this recommendation.")
+    affected: list[str] = Field(
+        default_factory=list,
+        description="Class names, floor IDs or grid IDs involved.",
+    )
+
+
+class RecommendationReport(BaseModel):
+    """Full prioritised recommendation report for a save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_id: int = Field(alias="saveId")
+    save_name: str = Field(alias="saveName")
+    generated_at: datetime = Field(alias="generatedAt")
+    total_buildings: int = Field(alias="totalBuildings")
+    recommendations: list[Recommendation] = Field(
+        description="Sorted: foundational → urgent → optional → future."
+    )
