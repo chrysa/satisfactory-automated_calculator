@@ -3,6 +3,36 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-57] — 2026-04-15
+
+
+### Features
+
+- **sa-34**: Consumption optimizer — power waste report and idle detector (#53) ([`0e153db`](0e153db151e25b549fdda1fe6f4413ef51503dcc))
+## [3.6.0-56] — 2026-04-12
+
+
+### CI/CD
+
+- Add FUNDING.yml (sponsoring) ([`8c2b657`](8c2b657e63ef4ffdb6957e294c5ead5219415b91))
+## [3.6.0-55] — 2026-04-12
+
+
+### CI/CD
+
+- Add FUNDING.yml (sponsoring) ([`d411759`](d4117597ccc8a4f2630df648b2ce700cf5ed2772))
+
+### Features
+
+- **sa**: Add Python FastAPI backend foundation (M-SA #28) (#43) ([`748714d`](748714d191085b6a7d56197640f8253aa58b600a))
+- **sa**: Add parse-save-json.js — .sav → WorldState JSON parser (closes #44) ([`8be4af7`](8be4af711a526a61cc49b3f71a7f1d28b30ca292))
+- **sa**: Add GET /api/v1/kpis — power + factory KPI snapshot (closes #45) ([`2bd06f2`](2bd06f2fc5b42eab43cc16b5208b6f29d78ff1f1))
+- **sa**: Add sat_watcher.py — local .sav polling service (closes #31) ([`1c0d39a`](1c0d39a8ecbd02aefdedcba574331a0aad5faa2b))
+- **sa**: Add GET /api/v1/analyze/bottlenecks — factory bottleneck detector (closes #33 #46) ([`a8fec22`](a8fec22b27058266443489983a0757ee4b4f1a65))
+
+### Miscellaneous
+
+- Add Python __pycache__ and build artifacts to .gitignore ([`9751ca8`](9751ca833592f9be042fe80ac16ba44688d60ad9))
 ## [3.6.0-48] — 2026-04-06
 
 
