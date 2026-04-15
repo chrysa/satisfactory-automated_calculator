@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-60] — 2026-04-15
+
+
+### Features
+
+- **sa-37**: Event logging — save-diff, construction log, state-change log (#54) ([`f3045f9`](f3045f9e6e2aabda462c50ab31352d2dba7603a7))
 ## [3.6.0-59] — 2026-04-15
 
 
@@ -186,3 +192,4 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 
 - Bump version to v3.5.1, update changelog with assistant features ([`eb50a3a`](eb50a3ab7854c6782d7ed68dbf117fbd0e99e2e6))
 - Remove stale 51_import.html + version bump 3.5.4 ([`757651b`](757651b08acba99ddc7866a8c9905fbb6a1bfe58))
+
