@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-58] — 2026-04-15
+
+
+### Features
+
+- **sa-35**: FICSIT ticket optimizer — AWESOME Sink points/min ranking (#58) ([`1bf8a05`](1bf8a05760593e827fad19321907e765431d43d1))
 ## [3.6.0-57] — 2026-04-15
 
 
