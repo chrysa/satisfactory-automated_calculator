@@ -155,46 +155,50 @@ class Bottleneck(BaseModel):
     message: str
 
 
-# ── Consumption optimizer models ──────────────────────────────────────────────
+# ── Recommendation engine models ──────────────────────────────────────────────
 
 
-class ConsumerGroup(BaseModel):
-    """Power consumption summary for one (machine-type, recipe) group."""
+class RecommendationUrgency(StrEnum):
+    foundational = "foundational"  # blocks everything — fix now
+    urgent = "urgent"              # will cause problems soon
+    optional = "optional"          # improvement opportunity
+    future = "future"              # long-term / all-clear
+
+
+class RecommendationCategory(StrEnum):
+    power = "power"
+    production = "production"
+    efficiency = "efficiency"
+    progression = "progression"
+
+
+class Recommendation(BaseModel):
+    """A single actionable recommendation derived from factory analysis."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    class_name: str = Field(alias="className")
-    friendly_name: str = Field(alias="friendlyName")
-    recipe_name: str | None = Field(None, alias="recipeName")
-    total_count: int = Field(alias="totalCount")
-    active_count: int = Field(alias="activeCount")
-    idle_count: int = Field(alias="idleCount")
-    avg_overclock: float = Field(alias="avgOverclock")
-    idle_waste_score: float = Field(
-        alias="idleWasteScore",
-        description="Sum of overclock% across idle buildings — higher = more wasted capacity.",
-    )
-    idle_waste_pct: float = Field(
-        alias="idleWastePct",
-        description="Percentage of buildings in this group that are idle (0–100).",
+    urgency: RecommendationUrgency
+    category: RecommendationCategory
+    title: str
+    message: str
+    trigger: str = Field(description="Machine-readable event that triggered this recommendation.")
+    affected: list[str] = Field(
+        default_factory=list,
+        description="Class names, floor IDs or grid IDs involved.",
     )
 
 
-class ConsumptionReport(BaseModel):
-    """Full consumption / waste report for a save."""
+class RecommendationReport(BaseModel):
+    """Full prioritised recommendation report for a save."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     save_id: int = Field(alias="saveId")
     save_name: str = Field(alias="saveName")
+    generated_at: datetime = Field(alias="generatedAt")
     total_buildings: int = Field(alias="totalBuildings")
-    idle_buildings: int = Field(alias="idleBuildings")
-    idle_waste_pct: float = Field(
-        alias="idleWastePct",
-        description="Global percentage of buildings that are idle.",
-    )
-    groups: list[ConsumerGroup] = Field(
-        description="Groups ranked by idle waste score descending (worst first)."
+    recommendations: list[Recommendation] = Field(
+        description="Sorted: foundational → urgent → optional → future."
     )
 
 
