@@ -126,44 +126,57 @@ class Bottleneck(BaseModel):
     message: str
 
 
-# ── Consumption optimizer models ──────────────────────────────────────────────
+# ── FICSIT optimizer models ───────────────────────────────────────────────────
 
 
-class ConsumerGroup(BaseModel):
-    """Power consumption summary for one (machine-type, recipe) group."""
+class FicsitEntry(BaseModel):
+    """Estimated AWESOME Sink output for one (machine-type × recipe) group."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     class_name: str = Field(alias="className")
     friendly_name: str = Field(alias="friendlyName")
     recipe_name: str | None = Field(None, alias="recipeName")
-    total_count: int = Field(alias="totalCount")
+    machine_count: int = Field(alias="machineCount")
     active_count: int = Field(alias="activeCount")
-    idle_count: int = Field(alias="idleCount")
     avg_overclock: float = Field(alias="avgOverclock")
-    idle_waste_score: float = Field(
-        alias="idleWasteScore",
-        description="Sum of overclock% across idle buildings — higher = more wasted capacity.",
+    somersloops: int = Field(description="Total somersloops slotted across all machines in this group.")
+    est_points_per_min: float | None = Field(
+        None,
+        alias="estPointsPerMin",
+        description="Estimated AWESOME Sink points/min. Null when recipe not in static lookup.",
     )
-    idle_waste_pct: float = Field(
-        alias="idleWastePct",
-        description="Percentage of buildings in this group that are idle (0–100).",
+    output_item: str | None = Field(
+        None,
+        alias="outputItem",
+        description="Primary sinkable output item name (from static lookup).",
+    )
+    sink_pts_per_item: int | None = Field(
+        None,
+        alias="sinkPtsPerItem",
+        description="AWESOME Sink point value per item unit.",
     )
 
 
-class ConsumptionReport(BaseModel):
-    """Full consumption / waste report for a save."""
+class FicsitReport(BaseModel):
+    """Full FICSIT / AWESOME Sink optimisation report."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     save_id: int = Field(alias="saveId")
     save_name: str = Field(alias="saveName")
-    total_buildings: int = Field(alias="totalBuildings")
-    idle_buildings: int = Field(alias="idleBuildings")
-    idle_waste_pct: float = Field(
-        alias="idleWastePct",
-        description="Global percentage of buildings that are idle.",
+    awesome_sink_count: int = Field(
+        alias="awesomeSinkCount",
+        description="Number of AWESOME Sink buildings detected in the save.",
     )
-    groups: list[ConsumerGroup] = Field(
-        description="Groups ranked by idle waste score descending (worst first)."
+    total_est_points_per_min: float = Field(
+        alias="totalEstPointsPerMin",
+        description="Sum of estimated points/min across all known recipe groups.",
+    )
+    entries: list[FicsitEntry] = Field(
+        description="Groups ranked by estimated points/min descending."
+    )
+    unknown_recipes: int = Field(
+        alias="unknownRecipes",
+        description="Number of active recipe groups not in the static sink-point lookup.",
     )
