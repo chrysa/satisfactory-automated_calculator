@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-59] — 2026-04-15
+
+
+### Features
+
+- **sa-36**: Recommendation engine — urgency-ranked factory advisor (#57) ([`815f649`](815f6492431de0c32ec587421e7ed37471e67594))
 ## [3.6.0-58] — 2026-04-15
 
 
@@ -180,3 +186,4 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 
 - Bump version to v3.5.1, update changelog with assistant features ([`eb50a3a`](eb50a3ab7854c6782d7ed68dbf117fbd0e99e2e6))
 - Remove stale 51_import.html + version bump 3.5.4 ([`757651b`](757651b08acba99ddc7866a8c9905fbb6a1bfe58))
+
