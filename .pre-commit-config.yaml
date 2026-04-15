@@ -7,7 +7,9 @@ repos:
   - id: check-json
   - id: check-yaml
   - id: end-of-file-fixer
-  - id: trailing-whitespace
+  - args:
+    - --markdown-linebreak-ext=md
+    id: trailing-whitespace
   - id: check-merge-conflict
   - args:
     - --maxkb=500
@@ -20,9 +22,9 @@ repos:
   - id: console-table-detection
   - id: no-console-warn
   - id: env-file-check
-  - id: yaml-sorter
-    exclude: ^\.github/workflows/
-  - id: js-syntax-check
-    exclude: '\.gs$'
+  - exclude: ^(\.github/|docker-compose\.yml)
+    id: yaml-sorter
+  - exclude: \.gs$
+    id: js-syntax-check
   repo: https://github.com/chrysa/pre-commit-tools
   rev: b97ae91d8a45eb6f556fe938fa8bd58294c9a5e6
