@@ -3,6 +3,13 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-62] — 2026-04-16
+
+
+### Miscellaneous
+
+- **ci**: Bump actions/github-script from 8 to 9 (#55) ([`5aca86b`](5aca86ba0254711b340fac94f47721d27d718901))
+- **ci**: Bump softprops/action-gh-release from 2 to 3 (#56) ([`6abec0f`](6abec0ffc60ff8135f5c6d14cb4361fc1b7be9cf))
 ## [3.6.0-60] — 2026-04-15
 
 
