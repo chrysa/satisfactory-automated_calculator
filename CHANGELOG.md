@@ -3,6 +3,12 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-63] — 2026-04-16
+
+
+### Miscellaneous
+
+- **dx**: Add Claude Code optimization config (#59) ([`fd3595f`](fd3595fe9af29615c3b72f5383aa1a0a0664e227))
 ## [3.6.0-62] — 2026-04-16
 
 
