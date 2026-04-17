@@ -1,26 +1,33 @@
-# satisfactory-automated_calculator — Copilot Instructions
+# satisfactory-automated_calculator — GitHub Copilot Instructions
 
-## Project Overview
+## Mandatory Workflow
 
-Automated production calculator for the game **Satisfactory**.
-Full-stack app: React/TypeScript frontend + Node.js/Python backend.
+1. Read `.github/instructions/*.instructions.md` when present.
+2. Read `CLAUDE.md` for repository context.
+3. Follow repository-local conventions before writing code.
 
-## Stack
+## Project Context
 
-- **Frontend**: React, TypeScript, Vite
-- **CI**: GitHub Actions composite actions from `chrysa/github-actions@v1`
-- **Quality**: pre-commit, ESLint, TypeScript strict mode
-- **Versioning**: GitVersion (semver), git-cliff (CHANGELOG)
+**Stack:** Node.js
+**Purpose:** [![CI](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml/badge.svg)](https://github.com/chrysa/satisfactory-automated_calculator/actions/workflows/ci.yml).
 
-## Key Constraints
+## Engineering Rules
 
-- All code in English
-- TypeScript strict mode — no implicit `any`
-- No `console.log` in production code
-- Pre-commit passes before every commit
+- Write in English: code, comments, docs, issues, PRs and commits.
+- Keep changes minimal and aligned with the existing style.
+- Do not add unrelated refactors or speculative improvements.
+- Prefer make targets when available instead of invoking tooling ad hoc.
+- Never commit secrets, credentials or environment-specific values.
 
-## Development Workflow
+## Claude Interoperability
 
-1. Branch from `main` (feature/*, fix/*, chore/*)
-2. `pre-commit run --all-files` before pushing
-3. PRs require CI to pass
+- This repository is also prepared for Claude Code via `.claude/` and `CLAUDE.md`.
+- Claude skills are available under `.claude/skills/` for relevant tasks.
+- If a task has repository instructions, those instructions override generic defaults.
+
+## Quality Thresholds
+
+- Max function length: 50 lines when practical.
+- Max file length: 500 lines when practical.
+- Max cyclomatic complexity: 10.
+- Lint warnings target: 0.
