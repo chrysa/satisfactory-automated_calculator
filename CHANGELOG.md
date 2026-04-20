@@ -3,6 +3,20 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-68] — 2026-04-20
+
+
+### Miscellaneous
+
+- **ci**: Bump softprops/action-gh-release from 2 to 3 (#63) ([`26af97e`](26af97eea2de1db8ddd6b6a3931d5510e085ce74))
+- **ci**: Bump actions/checkout from 4 to 6 (#62) ([`2e36b4c`](2e36b4ca35d6e3e687636a2c0ff3f4ca204d1a91))
+- **ci**: Bump SonarSource/sonarqube-scan-action from 5 to 7 (#61) ([`9ee9d55`](9ee9d5549c382289083e213e12d3044c906c11f4))
+## [3.6.0-65] — 2026-04-20
+
+
+### Miscellaneous
+
+- **deps**: Bump @etothepii/satisfactory-file-parser from 3.3.1 to 4.0.1 in the dev-dependencies group (#64) ([`8fe3f3f`](8fe3f3fd9582b06fa0d034950351e47eea19d348))
 ## [3.6.0-63] — 2026-04-16
 
 
