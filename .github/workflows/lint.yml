@@ -6,7 +6,7 @@ jobs:
     name: "\U0001F50D Lint & Validate"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Validate appsscript.json
       run: "python3 -m json.tool src/appsscript.json > /dev/null \\\n  || (echo '\u274C\
         \ src/appsscript.json is invalid JSON'; exit 1)\necho '\u2705 appsscript.json\
