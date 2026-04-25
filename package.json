@@ -7,7 +7,8 @@
     "test": "jest --testPathPatterns='tests/' --passWithNoTests",
     "test:watch": "jest --watch --testPathPatterns='tests/' --passWithNoTests",
     "lint:syntax": "node scripts/check-syntax.js",
-    "parse-save": "node scripts/parse-save.js"
+    "parse-save": "node scripts/parse-save.js",
+    "sat-calc": "node scripts/sat-calc.js"
   },
   "devDependencies": {
     "@etothepii/satisfactory-file-parser": "^4.0.1",
@@ -16,7 +17,6 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "setupFilesAfterFramework": [],
     "setupFiles": [
       "./tests/setup.js"
     ],
