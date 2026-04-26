@@ -5,7 +5,8 @@ minimum_pre_commit_version: 4.1.0
 repos:
 - hooks:
   - id: check-json
-  - id: check-yaml
+  - exclude: ^\.github/ISSUE_TEMPLATE/
+    id: check-yaml
   - id: end-of-file-fixer
   - args:
     - --markdown-linebreak-ext=md

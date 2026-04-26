@@ -61,6 +61,7 @@ function _buildMenu() {
     SpreadsheetApp.getUi()
       .createMenu('S.A.T.')
       .addItem('🤖 Ouvrir l\'assistant',               'SAT_openAssistant')
+      .addItem('🔴 Rapport Goulots',                  'SAT_showBottleneckReport')
       .addSeparator()
       .addItem('Recalcul complet',                    'SAT_recalcAll')
       .addItem('Résumé de production',                'SAT_SHOW_SUMMARY')
