@@ -39,3 +39,4 @@ scripts/debug-*.js
 
 # Backups
 backups/
+.ci-backup-*/
