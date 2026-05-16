@@ -4,6 +4,10 @@ test: ## Run Jest unit tests (pure logic, no GSheet required)
 	@echo "$(BLUE)🧪 Running Jest tests...$(NC)"
 	@test -f package.json && npm test || echo "$(YELLOW)⚠ package.json missing — run: npm install$(NC)"
 
+docker-test: ## Run Jest tests inside Docker (CI-compatible)
+	docker build -f Dockerfile.test -t sat-test .
+	docker run --rm sat-test
+
 parse-save(SAV): ## Parse a .sav file → production CSV + collectibles report
 	@test -n "$(SAV)" || (echo "$(RED)✗ .sav file not specified$(NC)"; echo "$(YELLOW)Usage: make parse-save SAV=<path.sav> [OUT=output.csv]$(NC)"; exit 1)
 	@echo "$(BLUE)📦 Parsing: $(SAV)$(NC)"
