@@ -17,7 +17,7 @@ repos:
     - --maxkb=500
     id: check-added-large-files
   repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: b89c5eef3ba3a74ecd506d968e63a8b80f697abf
+  rev: v6.0.0
 - hooks:
   - id: console-log-detection
   - id: console-debug-detection
@@ -29,4 +29,4 @@ repos:
   - exclude: \.gs$
     id: js-syntax-check
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: e538371cdb5dff59d3b67ef5e63dae3dce8bfc37
+  rev: v0.1.1-76
