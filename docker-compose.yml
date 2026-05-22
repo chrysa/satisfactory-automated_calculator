@@ -1,12 +1,10 @@
 services:
   db:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: sat
       POSTGRES_PASSWORD: sat
       POSTGRES_DB: sat
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +18,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
+      - "9011:8000"
     environment:
       SAT_DATABASE_URL: postgresql+asyncpg://sat:sat@db:5432/sat
     depends_on:

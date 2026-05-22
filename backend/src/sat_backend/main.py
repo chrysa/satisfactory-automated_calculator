@@ -129,6 +129,11 @@ app = FastAPI(
 )
 
 
+@app.get("/health", tags=["health"], summary="Health check", include_in_schema=False)
+async def health() -> dict:
+    return {"status": "ok"}
+
+
 # ── POST /api/v1/save/upload ─────────────────────────────────────────────────
 
 
@@ -255,75 +260,92 @@ def _diff_world_states(
 
     for key in curr_keys - prev_keys:
         b = curr_map[key]
-        events.append(EventLogRecord(
-            save_id=new_save_id,
-            category=EventCategory.construction,
-            event_type="machine_added",
-            payload={
-                "className": b.class_name,
-                "friendlyName": b.friendly_name,
-                "recipe": b.recipe,
-                "floorId": b.floor_id,
-                "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
-            },
-        ))
+        events.append(
+            EventLogRecord(
+                save_id=new_save_id,
+                category=EventCategory.construction,
+                event_type="machine_added",
+                payload={
+                    "className": b.class_name,
+                    "friendlyName": b.friendly_name,
+                    "recipe": b.recipe,
+                    "floorId": b.floor_id,
+                    "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
+                },
+            )
+        )
 
     for key in prev_keys - curr_keys:
         b = prev_map[key]
-        events.append(EventLogRecord(
-            save_id=new_save_id,
-            category=EventCategory.construction,
-            event_type="machine_removed",
-            payload={
-                "className": b.class_name,
-                "friendlyName": b.friendly_name,
-                "recipe": b.recipe,
-                "floorId": b.floor_id,
-                "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
-            },
-        ))
+        events.append(
+            EventLogRecord(
+                save_id=new_save_id,
+                category=EventCategory.construction,
+                event_type="machine_removed",
+                payload={
+                    "className": b.class_name,
+                    "friendlyName": b.friendly_name,
+                    "recipe": b.recipe,
+                    "floorId": b.floor_id,
+                    "location": {"x": b.location.x, "y": b.location.y, "z": b.location.z},
+                },
+            )
+        )
 
     for key in prev_keys & curr_keys:
         pb, cb = prev_map[key], curr_map[key]
         if pb.recipe != cb.recipe:
-            events.append(EventLogRecord(
-                save_id=new_save_id,
-                category=EventCategory.state_change,
-                event_type="recipe_changed",
-                payload={
-                    "className": cb.class_name,
-                    "friendlyName": cb.friendly_name,
-                    "floorId": cb.floor_id,
-                    "previousRecipe": pb.recipe,
-                    "newRecipe": cb.recipe,
-                    "location": {"x": cb.location.x, "y": cb.location.y, "z": cb.location.z},
-                },
-            ))
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="recipe_changed",
+                    payload={
+                        "className": cb.class_name,
+                        "friendlyName": cb.friendly_name,
+                        "floorId": cb.floor_id,
+                        "previousRecipe": pb.recipe,
+                        "newRecipe": cb.recipe,
+                        "location": {"x": cb.location.x, "y": cb.location.y, "z": cb.location.z},
+                    },
+                )
+            )
 
     prev_grids = {pg.id: pg for pg in prev.power_grids}
     curr_grids = {pg.id: pg for pg in curr.power_grids}
     for gid, cpg in curr_grids.items():
         ppg = prev_grids.get(gid)
         if ppg is None:
-            events.append(EventLogRecord(
-                save_id=new_save_id,
-                category=EventCategory.state_change,
-                event_type="power_grid_added",
-                payload={"gridId": gid, "productionMw": cpg.production, "consumptionMw": cpg.consumption},
-            ))
-        elif abs(cpg.production - ppg.production) > 0.5 or abs(cpg.consumption - ppg.consumption) > 0.5:
-            events.append(EventLogRecord(
-                save_id=new_save_id,
-                category=EventCategory.state_change,
-                event_type="power_grid_changed",
-                payload={
-                    "gridId": gid,
-                    "prevProductionMw": ppg.production,
-                    "newProductionMw": cpg.production,
-                    "prevConsumptionMw": ppg.consumption,
-                    "newConsumptionMw": cpg.consumption,
-                },
-            ))
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="power_grid_added",
+                    payload={
+                        "gridId": gid,
+                        "productionMw": cpg.production,
+                        "consumptionMw": cpg.consumption,
+                    },
+                )
+            )
+        elif (
+            abs(cpg.production - ppg.production) > 0.5
+            or abs(cpg.consumption - ppg.consumption) > 0.5
+        ):
+            events.append(
+                EventLogRecord(
+                    save_id=new_save_id,
+                    category=EventCategory.state_change,
+                    event_type="power_grid_changed",
+                    payload={
+                        "gridId": gid,
+                        "prevProductionMw": ppg.production,
+                        "newProductionMw": cpg.production,
+                        "prevConsumptionMw": ppg.consumption,
+                        "newConsumptionMw": cpg.consumption,
+                    },
+                )
+            )
 
     return events
 
@@ -465,7 +487,7 @@ async def get_kpis(
 
     total_produced = sum(pg.production for pg in state.power_grids)
     total_consumed = sum(pg.consumption for pg in state.power_grids)
-    any_fuse       = any(pg.fuse_tripped for pg in state.power_grids)
+    any_fuse = any(pg.fuse_tripped for pg in state.power_grids)
 
     power = PowerKPIs(
         producedMw=round(total_produced, 2),
@@ -475,15 +497,16 @@ async def get_kpis(
         gridCount=len(state.power_grids),
     )
 
-    active_buildings  = [b for b in state.buildings if b.state == BuildingState.active]
-    idle_buildings    = [b for b in state.buildings if b.state == BuildingState.idle]
-    paused_buildings  = [b for b in state.buildings if b.state == BuildingState.paused]
-    off_buildings     = [b for b in state.buildings if b.state == BuildingState.off]
+    active_buildings = [b for b in state.buildings if b.state == BuildingState.active]
+    idle_buildings = [b for b in state.buildings if b.state == BuildingState.idle]
+    paused_buildings = [b for b in state.buildings if b.state == BuildingState.paused]
+    off_buildings = [b for b in state.buildings if b.state == BuildingState.off]
     somersloops_total = sum(b.somersloops for b in state.buildings)
 
     efficiency = (
         sum(b.overclock for b in active_buildings) / len(active_buildings)
-        if active_buildings else 0.0
+        if active_buildings
+        else 0.0
     )
 
     factory = FactoryKPIs(
@@ -558,66 +581,74 @@ async def get_bottlenecks(
 
     for pg in state.power_grids:
         if pg.fuse_tripped:
-            bottlenecks.append(Bottleneck(
-                type=BottleneckType.fuse_tripped,
-                severity=BottleneckSeverity.critical,
-                className="PowerGrid",
-                friendlyName=f"Réseau électrique #{pg.id}",
-                recipeName=None,
-                floorId=None,
-                overclock=None,
-                message=(
-                    f"Fusible déclenché sur le réseau #{pg.id} "
-                    f"({pg.consumption:.0f} MW consommés / {pg.production:.0f} MW produits)"
-                ),
-            ))
+            bottlenecks.append(
+                Bottleneck(
+                    type=BottleneckType.fuse_tripped,
+                    severity=BottleneckSeverity.critical,
+                    className="PowerGrid",
+                    friendlyName=f"Réseau électrique #{pg.id}",
+                    recipeName=None,
+                    floorId=None,
+                    overclock=None,
+                    message=(
+                        f"Fusible déclenché sur le réseau #{pg.id} "
+                        f"({pg.consumption:.0f} MW consommés / {pg.production:.0f} MW produits)"
+                    ),
+                )
+            )
 
     for b in state.buildings:
         if b.state == BuildingState.idle and b.recipe:
-            bottlenecks.append(Bottleneck(
-                type=BottleneckType.idle_with_recipe,
-                severity=BottleneckSeverity.critical,
-                className=b.class_name,
-                friendlyName=b.friendly_name,
-                recipeName=b.recipe_name,
-                floorId=b.floor_id,
-                overclock=b.overclock,
-                message=(
-                    f"{b.friendly_name} inactif — recette «{b.recipe_name}» non alimentée"
-                    if b.recipe_name
-                    else f"{b.friendly_name} inactif (recette manquante)"
-                ),
-            ))
+            bottlenecks.append(
+                Bottleneck(
+                    type=BottleneckType.idle_with_recipe,
+                    severity=BottleneckSeverity.critical,
+                    className=b.class_name,
+                    friendlyName=b.friendly_name,
+                    recipeName=b.recipe_name,
+                    floorId=b.floor_id,
+                    overclock=b.overclock,
+                    message=(
+                        f"{b.friendly_name} inactif — recette «{b.recipe_name}» non alimentée"
+                        if b.recipe_name
+                        else f"{b.friendly_name} inactif (recette manquante)"
+                    ),
+                )
+            )
         elif b.state == BuildingState.paused and b.recipe:
-            bottlenecks.append(Bottleneck(
-                type=BottleneckType.paused,
-                severity=BottleneckSeverity.warning,
-                className=b.class_name,
-                friendlyName=b.friendly_name,
-                recipeName=b.recipe_name,
-                floorId=b.floor_id,
-                overclock=b.overclock,
-                message=f"{b.friendly_name} en pause",
-            ))
+            bottlenecks.append(
+                Bottleneck(
+                    type=BottleneckType.paused,
+                    severity=BottleneckSeverity.warning,
+                    className=b.class_name,
+                    friendlyName=b.friendly_name,
+                    recipeName=b.recipe_name,
+                    floorId=b.floor_id,
+                    overclock=b.overclock,
+                    message=f"{b.friendly_name} en pause",
+                )
+            )
         elif b.state == BuildingState.active and b.overclock < overclock_threshold:
-            bottlenecks.append(Bottleneck(
-                type=BottleneckType.underclocked,
-                severity=BottleneckSeverity.warning,
-                className=b.class_name,
-                friendlyName=b.friendly_name,
-                recipeName=b.recipe_name,
-                floorId=b.floor_id,
-                overclock=b.overclock,
-                message=(
-                    f"{b.friendly_name} sous-cadencé à {b.overclock}% "
-                    f"(seuil: {overclock_threshold}%)"
-                ),
-            ))
+            bottlenecks.append(
+                Bottleneck(
+                    type=BottleneckType.underclocked,
+                    severity=BottleneckSeverity.warning,
+                    className=b.class_name,
+                    friendlyName=b.friendly_name,
+                    recipeName=b.recipe_name,
+                    floorId=b.floor_id,
+                    overclock=b.overclock,
+                    message=(
+                        f"{b.friendly_name} sous-cadencé à {b.overclock}% "
+                        f"(seuil: {overclock_threshold}%)"
+                    ),
+                )
+            )
 
     severity_order = {
         BottleneckSeverity.critical: 0,
-        BottleneckSeverity.warning:  1,
-        BottleneckSeverity.info:     2,
+        BottleneckSeverity.warning: 1,
+        BottleneckSeverity.info: 2,
     }
     bottlenecks.sort(key=lambda x: severity_order[x.severity])
     return bottlenecks
@@ -669,29 +700,31 @@ async def get_consumption(
     consumer_groups: list[ConsumerGroup] = []
     for (class_name, recipe), members in groups.items():
         active = [b for b in members if b.state == BuildingState.active]
-        idle   = [b for b in members if b.state == BuildingState.idle]
+        idle = [b for b in members if b.state == BuildingState.idle]
 
-        avg_overclock    = sum(b.overclock for b in active) / len(active) if active else 0.0
+        avg_overclock = sum(b.overclock for b in active) / len(active) if active else 0.0
         idle_waste_score = sum(b.overclock for b in idle)
-        idle_waste_pct   = round(len(idle) / len(members) * 100, 1)
+        idle_waste_pct = round(len(idle) / len(members) * 100, 1)
 
         representative = members[0]
-        consumer_groups.append(ConsumerGroup(
-            className=class_name,
-            friendlyName=representative.friendly_name,
-            recipeName=representative.recipe_name if recipe else None,
-            totalCount=len(members),
-            activeCount=len(active),
-            idleCount=len(idle),
-            avgOverclock=round(avg_overclock, 1),
-            idleWasteScore=float(idle_waste_score),
-            idleWastePct=idle_waste_pct,
-        ))
+        consumer_groups.append(
+            ConsumerGroup(
+                className=class_name,
+                friendlyName=representative.friendly_name,
+                recipeName=representative.recipe_name if recipe else None,
+                totalCount=len(members),
+                activeCount=len(active),
+                idleCount=len(idle),
+                avgOverclock=round(avg_overclock, 1),
+                idleWasteScore=float(idle_waste_score),
+                idleWastePct=idle_waste_pct,
+            )
+        )
 
     consumer_groups.sort(key=lambda g: (-g.idle_waste_score, g.class_name))
 
     total_buildings = len(state.buildings)
-    idle_buildings  = sum(1 for b in state.buildings if b.state == BuildingState.idle)
+    idle_buildings = sum(1 for b in state.buildings if b.state == BuildingState.idle)
     global_idle_pct = round(idle_buildings / total_buildings * 100, 1) if total_buildings else 0.0
 
     return ConsumptionReport(
@@ -810,10 +843,14 @@ async def get_save_diff(
         await session.scalars(
             select(EventLogRecord)
             .where(EventLogRecord.save_id == save_id)
-            .where(EventLogRecord.category.in_([
-                EventCategory.construction.value,
-                EventCategory.state_change.value,
-            ]))
+            .where(
+                EventLogRecord.category.in_(
+                    [
+                        EventCategory.construction.value,
+                        EventCategory.state_change.value,
+                    ]
+                )
+            )
             .order_by(EventLogRecord.occurred_at.asc())
         )
     ).all()

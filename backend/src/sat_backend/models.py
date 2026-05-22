@@ -5,7 +5,6 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Upload / query response models ───────────────────────────────────────────
 
 
@@ -160,9 +159,9 @@ class Bottleneck(BaseModel):
 
 class RecommendationUrgency(StrEnum):
     foundational = "foundational"  # blocks everything — fix now
-    urgent = "urgent"              # will cause problems soon
-    optional = "optional"          # improvement opportunity
-    future = "future"              # long-term / all-clear
+    urgent = "urgent"  # will cause problems soon
+    optional = "optional"  # improvement opportunity
+    future = "future"  # long-term / all-clear
 
 
 class RecommendationCategory(StrEnum):
@@ -224,3 +223,32 @@ class EventLog(BaseModel):
     event_type: str = Field(alias="eventType")
     payload: dict
     occurred_at: datetime = Field(alias="occurredAt")
+
+
+class ConsumerGroup(BaseModel):
+    """A group of buildings sharing the same class and recipe."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    class_name: str = Field(alias="className")
+    friendly_name: str = Field(alias="friendlyName")
+    recipe_name: str | None = Field(alias="recipeName", default=None)
+    total_count: int = Field(alias="totalCount")
+    active_count: int = Field(alias="activeCount")
+    idle_count: int = Field(alias="idleCount")
+    avg_overclock: float = Field(alias="avgOverclock")
+    idle_waste_score: float = Field(alias="idleWasteScore")
+    idle_waste_pct: float = Field(alias="idleWastePct")
+
+
+class ConsumptionReport(BaseModel):
+    """Consumption analysis report for a save file."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_id: int = Field(alias="saveId")
+    save_name: str = Field(alias="saveName")
+    total_buildings: int = Field(alias="totalBuildings")
+    idle_buildings: int = Field(alias="idleBuildings")
+    idle_waste_pct: float = Field(alias="idleWastePct")
+    groups: list[ConsumerGroup]
