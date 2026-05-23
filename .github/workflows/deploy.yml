@@ -122,7 +122,7 @@ jobs:
       shell: bash
     - if: steps.tag_check.outputs.exists == 'false'
       name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         body_path: release_notes.md
         make_latest: true
@@ -141,7 +141,7 @@ jobs:
         fetch-depth: 0
     - id: version
       name: Compute version
-      uses: chrysa/github-actions/gitversion@v1
+      uses: chrysa/github-actions/gitversion@v1.0.8
     - name: Print computed version
       run: echo "Version -> ${{ steps.version.outputs.semVer }}"
       shell: bash

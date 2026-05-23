@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sat
+      POSTGRES_PASSWORD: sat
+      POSTGRES_DB: sat
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "9011:8000"
+    environment:
+      SAT_DATABASE_URL: postgresql+asyncpg://sat:sat@db:5432/sat
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - /tmp/sat-uploads:/tmp
+
+volumes:
+  pgdata:

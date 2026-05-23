@@ -3,6 +3,81 @@
 All notable changes to S.A.T. are documented here.
 Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a Changelog](https://keepachangelog.com/)
 
+## [3.6.0-68] — 2026-04-20
+
+
+### Miscellaneous
+
+- **ci**: Bump softprops/action-gh-release from 2 to 3 (#63) ([`26af97e`](26af97eea2de1db8ddd6b6a3931d5510e085ce74))
+- **ci**: Bump actions/checkout from 4 to 6 (#62) ([`2e36b4c`](2e36b4ca35d6e3e687636a2c0ff3f4ca204d1a91))
+- **ci**: Bump SonarSource/sonarqube-scan-action from 5 to 7 (#61) ([`9ee9d55`](9ee9d5549c382289083e213e12d3044c906c11f4))
+## [3.6.0-65] — 2026-04-20
+
+
+### Miscellaneous
+
+- **deps**: Bump @etothepii/satisfactory-file-parser from 3.3.1 to 4.0.1 in the dev-dependencies group (#64) ([`8fe3f3f`](8fe3f3fd9582b06fa0d034950351e47eea19d348))
+## [3.6.0-63] — 2026-04-16
+
+
+### Miscellaneous
+
+- **dx**: Add Claude Code optimization config (#59) ([`fd3595f`](fd3595fe9af29615c3b72f5383aa1a0a0664e227))
+## [3.6.0-62] — 2026-04-16
+
+
+### Miscellaneous
+
+- **ci**: Bump actions/github-script from 8 to 9 (#55) ([`5aca86b`](5aca86ba0254711b340fac94f47721d27d718901))
+- **ci**: Bump softprops/action-gh-release from 2 to 3 (#56) ([`6abec0f`](6abec0ffc60ff8135f5c6d14cb4361fc1b7be9cf))
+## [3.6.0-60] — 2026-04-15
+
+
+### Features
+
+- **sa-37**: Event logging — save-diff, construction log, state-change log (#54) ([`f3045f9`](f3045f9e6e2aabda462c50ab31352d2dba7603a7))
+## [3.6.0-59] — 2026-04-15
+
+
+### Features
+
+- **sa-36**: Recommendation engine — urgency-ranked factory advisor (#57) ([`815f649`](815f6492431de0c32ec587421e7ed37471e67594))
+## [3.6.0-58] — 2026-04-15
+
+
+### Features
+
+- **sa-35**: FICSIT ticket optimizer — AWESOME Sink points/min ranking (#58) ([`1bf8a05`](1bf8a05760593e827fad19321907e765431d43d1))
+## [3.6.0-57] — 2026-04-15
+
+
+### Features
+
+- **sa-34**: Consumption optimizer — power waste report and idle detector (#53) ([`0e153db`](0e153db151e25b549fdda1fe6f4413ef51503dcc))
+## [3.6.0-56] — 2026-04-12
+
+
+### CI/CD
+
+- Add FUNDING.yml (sponsoring) ([`8c2b657`](8c2b657e63ef4ffdb6957e294c5ead5219415b91))
+## [3.6.0-55] — 2026-04-12
+
+
+### CI/CD
+
+- Add FUNDING.yml (sponsoring) ([`d411759`](d4117597ccc8a4f2630df648b2ce700cf5ed2772))
+
+### Features
+
+- **sa**: Add Python FastAPI backend foundation (M-SA #28) (#43) ([`748714d`](748714d191085b6a7d56197640f8253aa58b600a))
+- **sa**: Add parse-save-json.js — .sav → WorldState JSON parser (closes #44) ([`8be4af7`](8be4af711a526a61cc49b3f71a7f1d28b30ca292))
+- **sa**: Add GET /api/v1/kpis — power + factory KPI snapshot (closes #45) ([`2bd06f2`](2bd06f2fc5b42eab43cc16b5208b6f29d78ff1f1))
+- **sa**: Add sat_watcher.py — local .sav polling service (closes #31) ([`1c0d39a`](1c0d39a8ecbd02aefdedcba574331a0aad5faa2b))
+- **sa**: Add GET /api/v1/analyze/bottlenecks — factory bottleneck detector (closes #33 #46) ([`a8fec22`](a8fec22b27058266443489983a0757ee4b4f1a65))
+
+### Miscellaneous
+
+- Add Python __pycache__ and build artifacts to .gitignore ([`9751ca8`](9751ca833592f9be042fe80ac16ba44688d60ad9))
 ## [3.6.0-48] — 2026-04-06
 
 
@@ -144,4 +219,3 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) | [Keep a C
 
 - Bump version to v3.5.1, update changelog with assistant features ([`eb50a3a`](eb50a3ab7854c6782d7ed68dbf117fbd0e99e2e6))
 - Remove stale 51_import.html + version bump 3.5.4 ([`757651b`](757651b08acba99ddc7866a8c9905fbb6a1bfe58))
-

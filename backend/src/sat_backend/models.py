@@ -1,8 +1,36 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# ── Upload / query response models ───────────────────────────────────────────
+
+
+class UploadResult(BaseModel):
+    """Response from POST /api/v1/save/upload."""
+
+    id: int = Field(description="Database ID of the imported (or existing) save.")
+    save_name: str | None = Field(None, description="Name of the save file.")
+    detail: str | None = Field(None, description="Set to 'already imported' when deduplicated.")
+
+
+class BuildingRow(BaseModel):
+    """Flat DB row returned by GET /api/v1/buildings."""
+
+    id: int
+    world_id: int
+    class_name: str
+    friendly_name: str | None = None
+    state: str | None = None
+    overclock: int | None = None
+    recipe: str | None = None
+    floor_id: str | None = None
+    somersloops: int = 0
+
+
+# ── World-state models ────────────────────────────────────────────────────────
 
 
 class Location(BaseModel):
@@ -124,3 +152,103 @@ class Bottleneck(BaseModel):
     floor_id: str | None = Field(None, alias="floorId")
     overclock: int | None = None
     message: str
+
+
+# ── Recommendation engine models ──────────────────────────────────────────────
+
+
+class RecommendationUrgency(StrEnum):
+    foundational = "foundational"  # blocks everything — fix now
+    urgent = "urgent"  # will cause problems soon
+    optional = "optional"  # improvement opportunity
+    future = "future"  # long-term / all-clear
+
+
+class RecommendationCategory(StrEnum):
+    power = "power"
+    production = "production"
+    efficiency = "efficiency"
+    progression = "progression"
+
+
+class Recommendation(BaseModel):
+    """A single actionable recommendation derived from factory analysis."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    urgency: RecommendationUrgency
+    category: RecommendationCategory
+    title: str
+    message: str
+    trigger: str = Field(description="Machine-readable event that triggered this recommendation.")
+    affected: list[str] = Field(
+        default_factory=list,
+        description="Class names, floor IDs or grid IDs involved.",
+    )
+
+
+class RecommendationReport(BaseModel):
+    """Full prioritised recommendation report for a save."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_id: int = Field(alias="saveId")
+    save_name: str = Field(alias="saveName")
+    generated_at: datetime = Field(alias="generatedAt")
+    total_buildings: int = Field(alias="totalBuildings")
+    recommendations: list[Recommendation] = Field(
+        description="Sorted: foundational → urgent → optional → future."
+    )
+
+
+# ── Event log models ──────────────────────────────────────────────────────────
+
+
+class EventCategory(StrEnum):
+    state_change = "state_change"
+    construction = "construction"
+    unlock = "unlock"
+    objective = "objective"
+    recommendation = "recommendation"
+
+
+class EventLog(BaseModel):
+    """A single logged event returned by the API."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    save_id: int = Field(alias="saveId")
+    category: EventCategory
+    event_type: str = Field(alias="eventType")
+    payload: dict
+    occurred_at: datetime = Field(alias="occurredAt")
+
+
+class ConsumerGroup(BaseModel):
+    """A group of buildings sharing the same class and recipe."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    class_name: str = Field(alias="className")
+    friendly_name: str = Field(alias="friendlyName")
+    recipe_name: str | None = Field(alias="recipeName", default=None)
+    total_count: int = Field(alias="totalCount")
+    active_count: int = Field(alias="activeCount")
+    idle_count: int = Field(alias="idleCount")
+    avg_overclock: float = Field(alias="avgOverclock")
+    idle_waste_score: float = Field(alias="idleWasteScore")
+    idle_waste_pct: float = Field(alias="idleWastePct")
+
+
+class ConsumptionReport(BaseModel):
+    """Consumption analysis report for a save file."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    save_id: int = Field(alias="saveId")
+    save_name: str = Field(alias="saveName")
+    total_buildings: int = Field(alias="totalBuildings")
+    idle_buildings: int = Field(alias="idleBuildings")
+    idle_waste_pct: float = Field(alias="idleWastePct")
+    groups: list[ConsumerGroup]

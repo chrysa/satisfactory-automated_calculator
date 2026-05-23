@@ -39,3 +39,10 @@ scripts/debug-*.js
 
 # Backups
 backups/
+.ci-backup-*/
+
+# CodeGraph (local index — never commit)
+.codegraph/
+
+# Local dev override
+docker-compose.override.yml

@@ -7,16 +7,16 @@
     "test": "jest --testPathPatterns='tests/' --passWithNoTests",
     "test:watch": "jest --watch --testPathPatterns='tests/' --passWithNoTests",
     "lint:syntax": "node scripts/check-syntax.js",
-    "parse-save": "node scripts/parse-save.js"
+    "parse-save": "node scripts/parse-save.js",
+    "sat-calc": "node scripts/sat-calc.js"
   },
   "devDependencies": {
-    "@etothepii/satisfactory-file-parser": "^3.3.1",
+    "@etothepii/satisfactory-file-parser": "^4.1.1",
     "gas-mock-globals": "^2.0.3",
-    "jest": "^30.3.0"
+    "jest": "^30.4.2"
   },
   "jest": {
     "testEnvironment": "node",
-    "setupFilesAfterFramework": [],
     "setupFiles": [
       "./tests/setup.js"
     ],

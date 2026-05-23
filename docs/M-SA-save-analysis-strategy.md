@@ -2,7 +2,7 @@
 
 **Issue**: [#28](https://github.com/chrysa/satisfactory-automated_calculator/issues/28)  
 **Milestone**: M-SA Save Analysis  
-**Status**: In Progress
+**Status**: ✅ Implemented
 
 ---
 
@@ -188,13 +188,14 @@ CREATE INDEX idx_world_states_parsed_at ON world_states(parsed_at DESC);
 
 ## Tasks Checklist
 
-- [ ] Verify `@etothepii/satisfactory-file-parser` v3.3.x compatibility with SAT 1.1 saves
-- [ ] Implement `fact-extractor.py` — raw parser JSON → `WorldState` schema
-- [ ] Create PostgreSQL schema and migrations (Alembic)
-- [ ] Implement FastAPI `/upload` endpoint with subprocess parser call
-- [ ] Implement deduplication (SHA-256 hash check)
-- [ ] Write unit tests for `fact-extractor.py`
-- [ ] Document the pipeline in `docs/M-SA-pipeline.md`
+- [x] Verify `@etothepii/satisfactory-file-parser` v3.3.x compatibility with SAT 1.1 saves
+- [x] Implement `extractor.py` — raw parser JSON → `WorldState` schema
+- [x] Create PostgreSQL schema and migrations (Alembic — 001 schema, 002 event_logs)
+- [x] Implement FastAPI `/upload` endpoint with subprocess parser call
+- [x] Implement deduplication (SHA-256 hash check)
+- [x] Save-diff computed on each upload (issue #37) → `event_logs` table
+- [x] Document the pipeline in `docs/backend-api.md`
+- [ ] Write unit tests for `extractor.py`
 
 ---
 

@@ -21,8 +21,41 @@ function SAT_recalcAll() {
 }
 
 /**
- * Met à jour le Dashboard avec les stats complètes (production + électricité
- * + top ressources + goulots + graphiques).
+ * Ouvre un dialogue modal affichant le rapport de goulots d'étranglement.
+ * Analyse les lignes de production et classe les bottlenecks par impact.
+ */
+function SAT_showBottleneckReport() {
+  try {
+    var rows        = SAT.Engine.buildIndex();
+    var bottlenecks = SAT.Bottleneck.analyze(rows);
+    var text        = SAT.Bottleneck.report(bottlenecks);
+
+    var html = HtmlService
+      .createHtmlOutput(
+        '<html><head><style>' +
+        'body{font-family:monospace;font-size:12px;white-space:pre;padding:12px;' +
+        'background:#1e1e1e;color:#d4d4d4}' +
+        '.ok{color:#4ec9b0}.warn{color:#dcdcaa}.err{color:#f44747}' +
+        '</style></head><body>' +
+        text
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/✅/g, '<span class="ok">✅</span>')
+          .replace(/🟠/g, '<span class="warn">🟠</span>')
+          .replace(/📉/g, '<span class="err">📉</span>') +
+        '</body></html>'
+      )
+      .setWidth(620)
+      .setHeight(480)
+      .setTitle('SAT — Rapport Goulots (' + bottlenecks.length + ' détectés)');
+
+    SpreadsheetApp.getUi().showModalDialog(html, 'SAT — Rapport Goulots');
+  } catch (e) {
+    Logger.log('ERR SAT_showBottleneckReport: ' + e.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Erreur : ' + e.message, 'Rapport Goulots', 5);
+  }
+}
+
+
  * Layout v3.4 : stats gauche (B5:B15), tableaux droite (E6:H22), graphiques col F+H ligne 40.
  */
 function _refreshDashboard(stats) {

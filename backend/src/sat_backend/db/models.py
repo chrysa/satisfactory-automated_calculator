@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+
 class Base(DeclarativeBase):
     pass
 
@@ -68,4 +69,31 @@ class BuildingRecord(Base):
 
     world_state: Mapped[WorldStateRecord] = relationship(
         "WorldStateRecord", back_populates="buildings"
+    )
+
+
+class EventLogRecord(Base):
+    """One logged event (state-change diff, construction, etc.) tied to a save upload."""
+
+    __tablename__ = "event_logs"
+    __table_args__ = (
+        Index("idx_event_logs_save_id", "save_id"),
+        Index("idx_event_logs_category", "category"),
+        Index("idx_event_logs_event_type", "event_type"),
+        Index("idx_event_logs_occurred_at", "occurred_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    save_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("world_states.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # category: state_change | construction | unlock | objective | recommendation
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    # event_type: machine_added | machine_removed | recipe_changed | power_grid_changed | …
+    event_type: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
