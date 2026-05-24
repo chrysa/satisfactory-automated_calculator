@@ -28,5 +28,26 @@ repos:
     id: yaml-sorter
   - exclude: \.gs$
     id: js-syntax-check
+  - id: regression-gate
+    stages:
+    - pre-push
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: e538371cdb5dff59d3b67ef5e63dae3dce8bfc37
+  rev0.1.1-76 e538371cdb5dff59d3b67ef5e63dae3dce8bfc37
+
+- hooks:
+  - args:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - test
+    - chore
+    - perf
+    - revert
+    - ci
+    id: conventional-pre-commit
+    stages:
+    - commit-msg
+  repo: https://github.com/compilerla/conventional-pre-commit
+  rev: v4.4.0
