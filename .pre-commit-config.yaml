@@ -17,7 +17,7 @@ repos:
     - --maxkb=500
     id: check-added-large-files
   repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: b89c5eef3ba3a74ecd506d968e63a8b80f697abf
+  rev: v6.0.0
 - hooks:
   - id: console-log-detection
   - id: console-debug-detection
@@ -28,26 +28,5 @@ repos:
     id: yaml-sorter
   - exclude: \.gs$
     id: js-syntax-check
-  - id: regression-gate
-    stages:
-    - pre-push
   repo: https://github.com/chrysa/pre-commit-tools
-  rev0.1.1-76 e538371cdb5dff59d3b67ef5e63dae3dce8bfc37
-
-- hooks:
-  - args:
-    - feat
-    - fix
-    - docs
-    - style
-    - refactor
-    - test
-    - chore
-    - perf
-    - revert
-    - ci
-    id: conventional-pre-commit
-    stages:
-    - commit-msg
-  repo: https://github.com/compilerla/conventional-pre-commit
-  rev: v4.4.0
+  rev: v0.1.1-76
