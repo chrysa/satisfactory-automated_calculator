@@ -28,5 +28,17 @@ repos:
     id: yaml-sorter
   - exclude: \.gs$
     id: js-syntax-check
+  - id: adr-gate
+  - id: dockerfile-no-latest
+  - id: env-example-sync
+  - id: python-print-detection
+  - id: python-pprint-detection
+  - id: no-bare-except
+  - id: python-logger-detection
+  - id: no-sync-in-async
+  - id: debugger-detection
+  - id: regression-gate
+    stages:
+    - pre-push
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: e538371cdb5dff59d3b67ef5e63dae3dce8bfc37
+  rev: v0.1.1-76
