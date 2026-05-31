@@ -68,3 +68,14 @@ printf "  \033[36m%-22s\033[0m \033[33m%-12s\033[0m %s\n", cmd, "", desc; \
 		echo ""; \
 	done
 	@echo "==================================================================="
+
+## Standard conformance targets (added for chrysa conformance)
+.PHONY: format pre-commit build
+
+format:  ## Format code (clasp-based project — no formatter configured)
+	@echo "No auto-formatter configured for Google Apps Script project."
+
+pre-commit:  ## Run pre-commit hooks on all files
+	pre-commit run --all-files
+
+build: deploy  ## Build / push (alias for deploy)
