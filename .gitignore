@@ -47,3 +47,5 @@ graphify-out/
 
 # Local dev override
 docker-compose.override.yml
+graphify
+sys
