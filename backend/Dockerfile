@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS deps
+FROM python:3.14-slim AS deps
 
 # ── Install Node.js 22 ────────────────────────────────────────────────────────
 RUN apt-get update && \
@@ -23,7 +23,7 @@ FROM deps AS builder
 COPY scripts/ ./scripts/
 
 # ── Production: hardened image ───────────────────────────────────────────────
-FROM python:3.12-slim AS production
+FROM python:3.14-slim AS production
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
