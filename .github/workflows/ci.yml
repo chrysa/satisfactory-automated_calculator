@@ -13,7 +13,7 @@ jobs:
     name: Lint & pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6.0.2
     - uses: actions/setup-node@v6
       with:
         node-version: '22'
@@ -21,7 +21,7 @@ jobs:
       run: "if [ -f package-lock.json ]; then\n    npm ci\nelse\n    npm install\n\
         fi\n"
       shell: bash
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: "3.14"
     - name: Install pre-commit
@@ -38,7 +38,7 @@ jobs:
     - test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6.0.2
       with:
         fetch-depth: 0
     - continue-on-error: true
@@ -62,7 +62,7 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6.0.2
     - uses: actions/setup-node@v6
       with:
         node-version: '22'
@@ -75,7 +75,7 @@ jobs:
         --coverageReporters=text
       shell: bash
     - name: Upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         if-no-files-found: ignore
         name: coverage-report
