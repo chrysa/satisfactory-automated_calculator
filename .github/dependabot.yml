@@ -112,3 +112,55 @@ updates:
       schedule:
           interval: cron
           cronjob: "0 4 * * 5"
+
+    # Python · pip
+    - package-ecosystem: pip
+      directory: /backend
+      assignees:
+          - chrysa
+      reviewers:
+          - chrysa
+      open-pull-requests-limit: 10
+      commit-message:
+          prefix: "[pip] "
+      labels:
+          - dependencies
+          - Python
+      schedule:
+          interval: cron
+          cronjob: "0 4 * * 5"
+      groups:
+          testing:
+              patterns:
+                  - pytest*
+                  - faker
+                  - mock
+                  - coverage*
+          typing-stubs:
+              patterns:
+                  - mypy*
+                  - types-*
+          linters:
+              patterns:
+                  - ruff*
+                  - black*
+                  - flake8*
+      cooldown:
+          default-days: 7
+
+    # Docker
+    - package-ecosystem: docker
+      directory: /backend
+      assignees:
+          - chrysa
+      reviewers:
+          - chrysa
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: "[docker] "
+      labels:
+          - dependencies
+          - Docker
+      schedule:
+          interval: cron
+          cronjob: "0 4 * * 5"
