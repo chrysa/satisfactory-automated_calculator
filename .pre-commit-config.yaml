@@ -23,6 +23,7 @@ repos:
     repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
   - hooks:
+      - id: makefile-check
       - id: console-log-detection
       - id: console-debug-detection
       - id: console-table-detection
@@ -50,7 +51,7 @@ repos:
       - id: import-no-relative-parent
   # --- react (React repos only — remove if not applicable) ---
     repo: https://github.com/chrysa/pre-commit-tools
-    rev: v0.1.1-93
+    rev: v0.1.1-94
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.48.0
     hooks:
