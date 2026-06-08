@@ -5,6 +5,7 @@
 # =============================================================================
 
 #!make
+# makefile-tier: infra
 ifneq (,)
 	$(error This Makefile requires GNU Make)
 endif
@@ -70,7 +71,10 @@ printf "  \033[36m%-22s\033[0m \033[33m%-12s\033[0m %s\n", cmd, "", desc; \
 	@echo "==================================================================="
 
 ## Standard conformance targets (added for chrysa conformance)
-.PHONY: format pre-commit build
+.PHONY: format pre-commit build dev
+
+dev:  ## No dev server (Google Apps Script) — use 'make push' to deploy
+	@echo "No dev server. Use 'make push' / 'make deploy' (clasp)."
 
 format:  ## Format code (clasp-based project — no formatter configured)
 	@echo "No auto-formatter configured for Google Apps Script project."
