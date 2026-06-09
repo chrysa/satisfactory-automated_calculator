@@ -145,7 +145,7 @@ And I click "Upload Image"
 Then the image should be uploaded successfully
 And I should see the new profile image in the dashboard
 And the old image should be replaced
-```
+```text
 
 ## Definition of Done
 - [ ] Dashboard page created with responsive design
