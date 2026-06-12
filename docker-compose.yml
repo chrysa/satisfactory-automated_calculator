@@ -1,6 +1,6 @@
+name: satisfactory-automated_calculator
 services:
   db:
-    container_name: sac-db
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: sat
@@ -15,7 +15,6 @@ services:
       retries: 10
 
   api:
-    container_name: sac-api
     build:
       context: .
       dockerfile: backend/Dockerfile
