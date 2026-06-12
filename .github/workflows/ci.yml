@@ -48,7 +48,7 @@ jobs:
         name: coverage-report
         path: coverage/
     - name: SonarCloud Scan
-      uses: chrysa/github-actions/sonar-js-scan@v1.0.12
+      uses: chrysa/github-actions/sonar-js-scan@v1.1.3
       with:
         coverage-report-paths: coverage/lcov.info
         github-token: ${{ secrets.GITHUB_TOKEN }}
