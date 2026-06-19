@@ -9,7 +9,7 @@ Review the GitHub pull request in $ARGUMENTS and submit structured feedback.
 
 ## Usage
 
-```
+```text
 /reviewpr <pr-number>
 ```
 

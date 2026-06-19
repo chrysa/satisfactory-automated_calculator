@@ -8,7 +8,7 @@ List the chrysa custom slash commands and how to use them.
 
 ## Usage
 
-```
+```text
 /help-commands
 ```
 
