@@ -9,7 +9,7 @@ Run and improve the test suite for the scope in $ARGUMENTS.
 
 ## Usage
 
-```
+```text
 /test <file-or-directory>
 /test <feature>
 /test all

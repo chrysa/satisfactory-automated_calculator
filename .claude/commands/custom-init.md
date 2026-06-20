@@ -9,7 +9,7 @@ parallel specialist analysis.
 
 ## Usage
 
-```
+```text
 /custom-init
 ```
 

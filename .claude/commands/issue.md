@@ -9,7 +9,7 @@ Analyze and resolve the GitHub issue in $ARGUMENTS following GitHub Flow and chr
 
 ## Usage
 
-```
+```text
 /issue <issue-number>
 ```
 

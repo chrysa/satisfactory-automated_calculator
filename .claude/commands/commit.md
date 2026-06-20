@@ -8,7 +8,7 @@ Create well-formatted commits following the chrysa Conventional Commits standard
 
 ## Usage
 
-```
+```text
 /commit
 ```
 
@@ -25,7 +25,7 @@ Create well-formatted commits following the chrysa Conventional Commits standard
 
 Format — see `EXECUTION_STANDARD.md` §3 (source of truth):
 
-```
+```text
 <type>(<scope>): <description>
 ```
 
