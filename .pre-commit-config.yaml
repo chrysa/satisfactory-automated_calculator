@@ -3,70 +3,94 @@ default_language_version:
 fail_fast: false
 minimum_pre_commit_version: 4.1.0
 repos:
-  - hooks:
-      - id: check-json
-      - exclude: ^\.github/ISSUE_TEMPLATE/
-        id: check-yaml
-      - id: end-of-file-fixer
-      - args:
-          - --markdown-linebreak-ext=md
-        id: trailing-whitespace
-      - id: check-merge-conflict
-      - id: detect-private-key
-      - args:
-          - --maxkb=500
-        id: check-added-large-files
-      - args:
-          - --branch
-          - main
-        id: no-commit-to-branch
-    repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-  - hooks:
-      - id: makefile-check
-      - id: console-log-detection
-      - id: console-debug-detection
-      - id: console-table-detection
-      - id: no-console-warn
-      - id: env-file-check
-      - exclude: ^(\.github/|docker-compose\.yml)
-        id: yaml-sorter
-      - exclude: \.gs$
-        id: js-syntax-check
-      - id: adr-gate
-      - id: dockerfile-no-latest
-      - id: env-example-sync
-      - id: python-print-detection
-      - id: python-pprint-detection
-      - id: no-bare-except
-      - id: python-logger-detection
-      - id: no-sync-in-async
-      - id: debugger-detection
-      - id: regression-gate
-        stages:
-          - pre-push
-      - id: json-sorter
-      - id: react-console-error-detection
-      - id: ts-unreachable-code
-      - id: import-no-relative-parent
-  # --- react (React repos only — remove if not applicable) ---
-    repo: https://github.com/chrysa/pre-commit-tools
-    rev: v0.1.1-94
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.49.0
-    hooks:
-      - args:
-          - --fix
-        id: markdownlint
-        stages:
-          - manual
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
-    hooks:
-      - id: gitleaks
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.4.0
-    hooks:
-      - id: conventional-pre-commit
-        stages: [commit-msg]
-        args: [feat, fix, docs, style, refactor, test, chore, perf, revert, ci]
+- hooks:
+  - id: check-json
+  - exclude: ^\.github/ISSUE_TEMPLATE/
+    id: check-yaml
+  - id: end-of-file-fixer
+  - args:
+    - --markdown-linebreak-ext=md
+    id: trailing-whitespace
+  - id: check-merge-conflict
+  - id: detect-private-key
+  - args:
+    - --maxkb=500
+    id: check-added-large-files
+  - args:
+    - --branch
+    - main
+    id: no-commit-to-branch
+  repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+- hooks:
+  - id: makefile-check
+  - id: console-log-detection
+  - id: console-debug-detection
+  - id: console-table-detection
+  - id: no-console-warn
+  - id: env-file-check
+  - exclude: ^(\.github/|docker-compose\.yml)
+    id: yaml-sorter
+  - exclude: \.gs$
+    id: js-syntax-check
+  - id: adr-gate
+  - id: dockerfile-no-latest
+  - id: env-example-sync
+  - id: python-print-detection
+  - id: python-pprint-detection
+  - id: no-bare-except
+  - id: python-logger-detection
+  - id: no-sync-in-async
+  - id: debugger-detection
+  - id: regression-gate
+    stages:
+    - pre-push
+  - id: json-sorter
+  - id: react-console-error-detection
+  - id: ts-unreachable-code
+  - id: import-no-relative-parent
+  repo: https://github.com/chrysa/pre-commit-tools
+  rev: v0.1.1-94
+- repo: https://github.com/igorshubovych/markdownlint-cli
+  rev: v0.49.0
+  hooks:
+  - args:
+    - --fix
+    id: markdownlint
+    stages:
+    - manual
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.30.1
+  hooks:
+  - id: gitleaks
+- repo: https://github.com/compilerla/conventional-pre-commit
+  rev: v4.4.0
+  hooks:
+  - id: conventional-pre-commit
+    stages:
+    - commit-msg
+    args:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - test
+    - chore
+    - perf
+    - revert
+    - ci
+- repo: local
+  hooks:
+  - id: gitversion-canonical-drift
+    name: GitVersion.yml canonical drift
+    entry: scripts/check-canonical-drift.sh GitVersion.yml templates/GitVersion.yml
+    language: system
+    pass_filenames: false
+    files: ^(GitVersion\.yml|templates/GitVersion\.yml)$
+  - id: cliff-canonical-drift
+    name: cliff.toml canonical drift
+    entry: scripts/check-canonical-drift.sh cliff.toml templates/cliff.toml
+    language: system
+    pass_filenames: false
+    files: ^(cliff\.toml|templates/cliff\.toml)$
