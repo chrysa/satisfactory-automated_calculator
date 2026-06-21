@@ -50,7 +50,7 @@ repos:
   - id: ts-unreachable-code
   - id: import-no-relative-parent
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: v0.1.1-94
+  rev: v0.1.1-95
 - repo: https://github.com/igorshubovych/markdownlint-cli
   rev: v0.49.0
   hooks:
