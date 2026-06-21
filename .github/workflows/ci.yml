@@ -83,7 +83,7 @@ jobs:
               with:
                   sonar-token: ${{ secrets.SONAR_TOKEN }}
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-                  project-key: chrysa_target
+                  project-key: chrysa_satisfactory-automated_calculator
                   organization: chrysa
-                  project-name: target
+                  project-name: satisfactory-automated_calculator
                   sources: src
