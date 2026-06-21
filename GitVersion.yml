@@ -1,5 +1,26 @@
-major-version-bump-message: ^(feat|fix|refactor|perf|chore)(\([^)]+\))?!:.+
-minor-version-bump-message: ^feat(\([^)]+\))?:.+
-next-version: 3.5.5
-patch-version-bump-message: ^(fix|chore|docs|style|refactor|perf|test|build|ci)(\([^)]+\))?:.+
-workflow: GitHubFlow/v1
+branches:
+  chore:
+    increment: Patch
+    mode: ContinuousDeployment
+    regex: ^chore/
+    tag: alpha
+  feature:
+    increment: Minor
+    mode: ContinuousDeployment
+    regex: ^feat/
+    tag: alpha
+  fix:
+    increment: Patch
+    mode: ContinuousDeployment
+    regex: ^fix/
+    tag: beta
+  main:
+    increment: Patch
+    mode: ContinuousDelivery
+    regex: ^main$
+    tag: ''
+increment: Inherit
+major-version-bump-message: ^(feat|fix|refactor)(\(.+\))?!:.+
+minor-version-bump-message: ^feat(\(.+\))?:.+
+mode: ContinuousDeployment
+patch-version-bump-message: ^(fix|refactor|perf|docs|chore)(\(.+\))?:.+
