@@ -4,8 +4,8 @@
 # Usage: copy to .github/workflows/ci.yml. The applier
 # (scripts/apply-repo-standard.sh) substitutes the ${...} placeholders:
 #   src      source dir for sonar              (e.g. src)
-#   target    repo name                         (e.g. container-webview)
-#   chrysa_target  SonarCloud project key            (e.g. chrysa_container-webview)
+#   satisfactory-automated_calculator    repo name                         (e.g. container-webview)
+#   chrysa_satisfactory-automated_calculator  SonarCloud project key            (e.g. chrysa_container-webview)
 #
 # ⚠️ This file lives in workflows/ (NOT .github/workflows/) — it is a copy-to-use
 #    template, not a reusable `uses:` workflow.
