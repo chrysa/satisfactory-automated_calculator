@@ -242,6 +242,25 @@ function csvRow(fields) {
 }
 
 /**
+ * Count items in a single inventory stack whose pathName includes descSubstr.
+ * Returns the count, or 0 if the stack does not match.
+ * @param {object} stack - inventory stack element
+ * @param {string} descSubstr - item descriptor path substring to match
+ * @returns {number}
+ */
+function countStackItems(stack, descSubstr) {
+  if (!stack || !stack.value) return 0;
+  const sv = stack.value;
+  const props = sv.properties || (sv.value && sv.value.properties);
+  if (!props) return 0;
+  const itemProp = props.Item;
+  const numProp  = props.NumItems;
+  const ref = itemProp && itemProp.value && itemProp.value.itemReference;
+  if (!ref || !ref.pathName || !ref.pathName.includes(descSubstr)) return 0;
+  return (numProp && typeof numProp.value === 'number') ? numProp.value : 1;
+}
+
+/**
  * Count items matching a descriptor path substring across all inventory stacks
  * in every object in the save.
  * Inventory stacks are StructArrayProperties whose values have:
@@ -255,16 +274,7 @@ function countInInventories(objects, descSubstr) {
     for (const p of Object.values(obj.properties)) {
       if (!p || !Array.isArray(p.values)) continue;
       for (const stack of p.values) {
-        if (!stack || !stack.value) continue;
-        const sv = stack.value;
-        const props = sv.properties || (sv.value && sv.value.properties);
-        if (!props) continue;
-        const itemProp = props.Item;
-        const numProp  = props.NumItems;
-        const ref = itemProp && itemProp.value && itemProp.value.itemReference;
-        if (ref && ref.pathName && ref.pathName.includes(descSubstr)) {
-          total += (numProp && typeof numProp.value === 'number') ? numProp.value : 1;
-        }
+        total += countStackItems(stack, descSubstr);
       }
     }
   }
