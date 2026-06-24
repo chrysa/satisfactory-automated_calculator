@@ -98,6 +98,60 @@ function buildingXYZ(obj) {
 // ── Core analysis ─────────────────────────────────────────────────────────────
 
 /**
+ * Build a building_efficiency bottleneck entry, or null if no issue.
+ * @param {object} b - building row
+ * @param {number} baseRate - base rate from MACHINE_BASE
+ * @returns {object|null}
+ */
+function buildEfficiencyBottleneck(b, baseRate) {
+  const oc = b.oc || 100;
+  if (oc <= 0 || oc >= EFFICIENCY_MIN * 100) return null;
+  const nb = b.nb || 1;
+  const lostPerMin = Math.round(baseRate * nb * (1 - oc / 100) * 10) / 10;
+  if (lostPerMin <= 0.1) return null;
+  return {
+    type:       'building_efficiency',
+    location:   'Floor ' + b.floor,
+    xyz:        b.xyz,
+    classKey:   b.classKey,
+    recipe:     b.recipe || '(unknown)',
+    metric:     oc,
+    impact:     lostPerMin,
+    suggestion: oc < 40
+      ? 'Severe starvation suspected — check input belts/pipes'
+      : 'Raise OC to 100% or replace with ' + Math.ceil(nb * oc / 100) + ' building(s) @100% OC'
+  };
+}
+
+/**
+ * Build a belt_throughput bottleneck entry, or null if no issue.
+ * @param {object} b - building row
+ * @param {number} totalTp - total throughput (items/min)
+ * @returns {object|null}
+ */
+function buildBeltBottleneck(b, totalTp) {
+  if (totalTp <= 0) return null;
+  const tier = beltTier(totalTp);
+  const saturation = totalTp / tier.capacity;
+  if (saturation < SATURATION_MIN) return null;
+  const isOver = totalTp > 1200;
+  return {
+    type:       'belt_throughput',
+    location:   'Floor ' + b.floor,
+    xyz:        b.xyz,
+    classKey:   b.classKey,
+    recipe:     b.recipe || '(unknown)',
+    metric:     Math.round(saturation * 100),
+    impact:     totalTp,
+    suggestion: isOver
+      ? 'Split across ' + Math.ceil(totalTp / 1200) + ' Mk.6 belt(s)'
+      : (tier.nextMk
+          ? 'Upgrade to Mk.' + tier.nextMk + ' belt (' + tier.nextCapacity + '/min capacity)'
+          : 'Belt Mk.6 at limit — split across ' + Math.ceil(totalTp / 1200) + ' belt(s)')
+  };
+}
+
+/**
  * Analyse a list of parsed building records and return ranked bottlenecks.
  * @param {Array<{classKey, recipe, nb, oc, xyz, floor}>} buildingRows
  * @returns {Array}
@@ -109,53 +163,16 @@ function analyzeBuildingRows(buildingRows) {
     const base = MACHINE_BASE[b.classKey];
     if (!base) continue;
 
-    const nb          = b.nb || 1;
-    const oc          = b.oc || 100;
-    const baseRate    = base.rate;
-    const actualRate  = baseRate * (oc / 100);
-    const totalTp     = Math.round(actualRate * nb * 10) / 10;
+    const nb         = b.nb || 1;
+    const oc         = b.oc || 100;
+    const actualRate = base.rate * (oc / 100);
+    const totalTp    = Math.round(actualRate * nb * 10) / 10;
 
-    // ── A. Building efficiency (OC < EFFICIENCY_MIN) ─────────────────────
-    if (oc > 0 && oc < EFFICIENCY_MIN * 100) {
-      const lostPerMin = Math.round(baseRate * nb * (1 - oc / 100) * 10) / 10;
-      if (lostPerMin > 0.1) {
-        bottlenecks.push({
-          type:       'building_efficiency',
-          location:   'Floor ' + b.floor,
-          xyz:        b.xyz,
-          classKey:   b.classKey,
-          recipe:     b.recipe || '(unknown)',
-          metric:     oc,
-          impact:     lostPerMin,
-          suggestion: oc < 40
-            ? 'Severe starvation suspected — check input belts/pipes'
-            : 'Raise OC to 100% or replace with ' + Math.ceil(nb * oc / 100) + ' building(s) @100% OC'
-        });
-      }
-    }
+    const effEntry  = buildEfficiencyBottleneck(b, base.rate);
+    if (effEntry) bottlenecks.push(effEntry);
 
-    // ── B. Belt throughput saturation ─────────────────────────────────────
-    if (totalTp > 0) {
-      const tier       = beltTier(totalTp);
-      const saturation = totalTp / tier.capacity;
-      if (saturation >= SATURATION_MIN) {
-        const isOver = totalTp > 1200;
-        bottlenecks.push({
-          type:       'belt_throughput',
-          location:   'Floor ' + b.floor,
-          xyz:        b.xyz,
-          classKey:   b.classKey,
-          recipe:     b.recipe || '(unknown)',
-          metric:     Math.round(saturation * 100),
-          impact:     totalTp,
-          suggestion: isOver
-            ? 'Split across ' + Math.ceil(totalTp / 1200) + ' Mk.6 belt(s)'
-            : (tier.nextMk
-                ? 'Upgrade to Mk.' + tier.nextMk + ' belt (' + tier.nextCapacity + '/min capacity)'
-                : 'Belt Mk.6 at limit — split across ' + Math.ceil(totalTp / 1200) + ' belt(s)')
-        });
-      }
-    }
+    const beltEntry = buildBeltBottleneck(b, totalTp);
+    if (beltEntry) bottlenecks.push(beltEntry);
   }
 
   bottlenecks.sort((a, b) => b.impact - a.impact);

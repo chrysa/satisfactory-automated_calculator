@@ -412,17 +412,14 @@ document.getElementById('fileInput').addEventListener('change', async (e) => {
 
 // ─── Extract production rows ──────────────────────────────────────────────────
 
-function extractProduction(allObjects) {
-  const KEYS = new Set(Object.keys(MACHINE_MAP));
-
-  // ── Build priority switch + circuit maps ────────────────────────────────
-  // switchTagMap:    switchInstanceBase → mBuildingTag (user-set name)
-  // circuitToSwitch: circuitID → switchInstanceBase (only if circuit has exactly 1 switch)
-  // instanceToCircuit: machineInstanceBase → circuitID
-
-  const allCircuits = allObjects.filter(o => o?.typePath?.includes('FGPowerCircuit'));
-
-  const switchTagMap = new Map(); // switchInstanceBase → mBuildingTag
+/**
+ * Build the three circuit-mapping structures from all parsed objects:
+ *   switchTagMap:    switchInstanceBase → mBuildingTag
+ *   circuitToSwitch: circuitID → switchInstanceBase (only circuits with exactly 1 switch)
+ *   instanceToCircuit: machineInstanceBase → circuitID
+ */
+function buildCircuitMaps(allObjects) {
+  const switchTagMap = new Map();
   for (const obj of allObjects) {
     if (!obj?.typePath?.includes('PriorityPowerSwitch')) continue;
     const instBase = obj.instanceName?.split('.').pop();
@@ -432,6 +429,7 @@ function extractProduction(allObjects) {
 
   const instanceToCircuit = new Map();
   const circuitSwitchCount = new Map();
+  const allCircuits = allObjects.filter(o => o?.typePath?.includes('FGPowerCircuit'));
   for (const circuit of allCircuits) {
     const cid = circuit.properties?.mCircuitID?.value ?? null;
     if (cid === null) continue;
@@ -458,56 +456,57 @@ function extractProduction(allObjects) {
     if (switchList.length === 1) circuitToSwitch.set(cid, switchList[0]);
   }
 
-  // ── Extract data per building ────────────────────────────────────────────
-  const buildings = allObjects.filter(o => o && o.typePath && KEYS.has(classKey(o.typePath)));
-  const extracted = [];
+  return { switchTagMap, instanceToCircuit, circuitToSwitch };
+}
 
-  for (const b of buildings) {
-    const key = classKey(b.typePath);
-    const machine = MACHINE_MAP[key] || key;
+/**
+ * Extract the relevant data from a single building object.
+ * Returns null if the building should be skipped (off or no recipe).
+ */
+function extractBuildingData(b, instanceToCircuit, circuitToSwitch, switchTagMap) {
+  const key = classKey(b.typePath);
+  const machine = MACHINE_MAP[key] || key;
 
-    const clockRaw = propVal(b, 'mCurrentPotential')
-                  ?? propVal(b, 'mPendingPotential')
-                  ?? 1;
-    const oc = Math.round(Number(clockRaw) * 100);
+  const clockRaw = propVal(b, 'mCurrentPotential')
+                ?? propVal(b, 'mPendingPotential')
+                ?? 1;
+  const oc = Math.round(Number(clockRaw) * 100);
 
-    // Machines éteintes (switch OFF en jeu) → exclues de l'import
-    const isProducing = propVal(b, 'mIsProducing');
-    if (isProducing === false) continue;
+  // Machines éteintes (switch OFF en jeu) → exclues de l'import
+  if (propVal(b, 'mIsProducing') === false) return null;
 
-    const recipeProp = prop(b, 'mCurrentRecipe');
-    let recipe = '';
-    if (recipeProp && recipeProp.value && recipeProp.value.pathName) {
-      const rKey = classKey(recipeProp.value.pathName);
-      recipe = RECIPE_MAP[rKey] || rKey;
-    }
-    // Only include machines with a recipe (verify production)
-    if (!recipe) continue;
+  const recipeProp = prop(b, 'mCurrentRecipe');
+  let recipe = '';
+  if (recipeProp && recipeProp.value && recipeProp.value.pathName) {
+    recipe = RECIPE_MAP[classKey(recipeProp.value.pathName)] || classKey(recipeProp.value.pathName);
+  }
+  if (!recipe) return null;
 
-    const sloop = Number(
-      propVal(b, 'mNumSomersloopsSlotted') ?? propVal(b, 'mNumSlotsUsedForced') ?? 0
-    );
+  const sloop = Number(propVal(b, 'mNumSomersloopsSlotted') ?? propVal(b, 'mNumSlotsUsedForced') ?? 0);
 
-    let purity = 'Normal';
-    const pp = prop(b, 'mNodePurity') ?? prop(b, 'mExtractorTypeName');
-    if (pp && pp.value) {
-      const pFull = String(pp.value);
-      const pKey  = pFull.split('::').pop();
-      purity = PURITY_MAP[pFull] ?? PURITY_MAP[pKey] ?? 'Normal';
-    }
-
-    const z = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
-
-    // Étage name from priority switch via circuit membership
-    const instanceBase = b.instanceName?.split('.').pop() ?? null;
-    const cid = instanceBase ? (instanceToCircuit.get(instanceBase) ?? null) : null;
-    const switchInst = cid === null ? null : (circuitToSwitch.get(cid) ?? null);
-    const etageName = switchInst ? (switchTagMap.get(switchInst) ?? null) : null;
-
-    extracted.push({ machine, recipe, oc, sloop, purity, z, etageName });
+  let purity = 'Normal';
+  const pp = prop(b, 'mNodePurity') ?? prop(b, 'mExtractorTypeName');
+  if (pp && pp.value) {
+    const pFull = String(pp.value);
+    const pKey  = pFull.split('::').pop();
+    purity = PURITY_MAP[pFull] ?? PURITY_MAP[pKey] ?? 'Normal';
   }
 
-  // ── Group identical machines per ligne de production ─────────────────────
+  const z = (b.transform && b.transform.translation) ? b.transform.translation.z : 0;
+
+  // Étage name from priority switch via circuit membership
+  const instanceBase = b.instanceName?.split('.').pop() ?? null;
+  const cid = instanceBase ? (instanceToCircuit.get(instanceBase) ?? null) : null;
+  const switchInst = cid === null ? null : (circuitToSwitch.get(cid) ?? null);
+  const etageName = switchInst ? (switchTagMap.get(switchInst) ?? null) : null;
+
+  return { machine, recipe, oc, sloop, purity, z, etageName };
+}
+
+/**
+ * Group extracted building data by production line key, sort and format output rows.
+ */
+function groupAndSortProduction(extracted) {
   const groups = {};
   for (const e of extracted) {
     const k = `${e.etageName ?? '_nc'}|${e.machine}|${e.recipe}|${e.oc}|${e.purity}|${e.sloop}`;
@@ -532,10 +531,35 @@ function extractProduction(allObjects) {
     }));
 }
 
+function extractProduction(allObjects) {
+  const KEYS = new Set(Object.keys(MACHINE_MAP));
+  const { switchTagMap, instanceToCircuit, circuitToSwitch } = buildCircuitMaps(allObjects);
+
+  const buildings = allObjects.filter(o => o && o.typePath && KEYS.has(classKey(o.typePath)));
+  const extracted = [];
+  for (const b of buildings) {
+    const data = extractBuildingData(b, instanceToCircuit, circuitToSwitch, switchTagMap);
+    if (data) extracted.push(data);
+  }
+
+  return groupAndSortProduction(extracted);
+}
+
 // ─── Extract collectibles ─────────────────────────────────────────────────────
 
 function countInWorld(allObjects, substr) {
   return allObjects.filter(o => o && o.typePath && o.typePath.includes(substr)).length;
+}
+
+function countStackItems(stack, descSubstr) {
+  if (!stack || !stack.value) return 0;
+  const props = stack.value.properties || (stack.value.value && stack.value.value.properties);
+  if (!props) return 0;
+  const itemProp = props.Item;
+  const numProp  = props.NumItems;
+  const ref = itemProp && itemProp.value && itemProp.value.itemReference;
+  if (!ref || !ref.pathName || !ref.pathName.includes(descSubstr)) return 0;
+  return (numProp && typeof numProp.value === 'number') ? numProp.value : 1;
 }
 
 function countInInventories(allObjects, descSubstr) {
@@ -545,15 +569,7 @@ function countInInventories(allObjects, descSubstr) {
     for (const p of Object.values(obj.properties)) {
       if (!p || !Array.isArray(p.values)) continue;
       for (const stack of p.values) {
-        if (!stack || !stack.value) continue;
-        const props = stack.value.properties || (stack.value.value && stack.value.value.properties);
-        if (!props) continue;
-        const itemProp = props.Item;
-        const numProp  = props.NumItems;
-        const ref = itemProp && itemProp.value && itemProp.value.itemReference;
-        if (ref && ref.pathName && ref.pathName.includes(descSubstr)) {
-          total += (numProp && typeof numProp.value === 'number') ? numProp.value : 1;
-        }
+        total += countStackItems(stack, descSubstr);
       }
     }
   }
@@ -602,6 +618,28 @@ function extractCollectibles(allObjects, save) {
 }
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
+
+function buildSlugCard(slugs, slugRemainingPotential, slugPct) {
+  const rawInHand = slugs.gI + slugs.yI + slugs.bI;
+  const slugDetailLine = rawInHand > 0
+    ? `<b>${slugs.shards}</b> shards · ${rawInHand} limace(s) brute(s) en inventaire`
+    : `<b>${slugs.shards}</b> shards · +${slugRemainingPotential} potentiels restants`;
+  const slugBarColor = slugPct >= 75 ? '#34a853' : slugPct >= 40 ? '#fbbc04' : '#ea4335';
+  const slugPctCls   = slugPct >= 75 ? 'pct-high' : slugPct >= 40 ? 'pct-med' : 'pct-low';
+  return `<div class="collect-card">
+    <div class="collect-head">
+      <span class="collect-name">⚡ Limaces d'énergie</span>
+      <span class="pct-badge ${slugPctCls}">${slugPct}%</span>
+    </div>
+    <div class="collect-detail">${slugDetailLine}</div>
+    <div class="collect-bar"><div class="collect-fill" style="width:${slugPct}%;background:${slugBarColor}"></div></div>
+    <div class="slug-tiers">
+      <div class="slug-tier">🟢 <b>${esc(String(slugs.gW))}</b><span class="slug-world">dans le monde</span></div>
+      <div class="slug-tier">🟡 <b>${esc(String(slugs.yW))}</b><span class="slug-world">dans le monde</span></div>
+      <div class="slug-tier">🔵 <b>${esc(String(slugs.bW))}</b><span class="slug-world">dans le monde</span></div>
+    </div>
+  </div>`;
+}
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -692,25 +730,7 @@ function renderRapport(c) {
   );
 
   // ── Energy Slugs ──────────────────────────────────────────────────────────
-  const rawInHand = c.slugs.gI + c.slugs.yI + c.slugs.bI;
-  const slugDetailLine = rawInHand > 0
-    ? `<b>${c.slugs.shards}</b> shards · ${rawInHand} limace(s) brute(s) en inventaire`
-    : `<b>${c.slugs.shards}</b> shards · +${slugRemainingPotential} potentiels restants`;
-  const slugBarColor = slugPct >= 75 ? '#34a853' : slugPct >= 40 ? '#fbbc04' : '#ea4335';
-  const slugPctCls   = slugPct >= 75 ? 'pct-high' : slugPct >= 40 ? 'pct-med' : 'pct-low';
-  const slugCard = `<div class="collect-card">
-    <div class="collect-head">
-      <span class="collect-name">⚡ Limaces d'énergie</span>
-      <span class="pct-badge ${slugPctCls}">${slugPct}%</span>
-    </div>
-    <div class="collect-detail">${slugDetailLine}</div>
-    <div class="collect-bar"><div class="collect-fill" style="width:${slugPct}%;background:${slugBarColor}"></div></div>
-    <div class="slug-tiers">
-      <div class="slug-tier">🟢 <b>${esc(String(c.slugs.gW))}</b><span class="slug-world">dans le monde</span></div>
-      <div class="slug-tier">🟡 <b>${esc(String(c.slugs.yW))}</b><span class="slug-world">dans le monde</span></div>
-      <div class="slug-tier">🔵 <b>${esc(String(c.slugs.bW))}</b><span class="slug-world">dans le monde</span></div>
-    </div>
-  </div>`;
+  const slugCard = buildSlugCard(c.slugs, slugRemainingPotential, slugPct);
 
   // ── Render ────────────────────────────────────────────────────────────────
   elRapport.innerHTML = `
