@@ -141,7 +141,7 @@ jobs:
         fetch-depth: 0
     - id: version
       name: Compute version
-      uses: chrysa/github-actions/gitversion@v1.1.3
+      uses: chrysa/github-actions/gitversion@v1.2.1
     - name: Print computed version
       run: echo "Version -> ${{ steps.version.outputs.semVer }}"
       shell: bash
