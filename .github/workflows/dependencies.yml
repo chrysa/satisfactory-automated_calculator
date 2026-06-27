@@ -16,7 +16,7 @@ jobs:
 
         steps:
             - name: Check dependencies
-              uses: gregsdennis/dependencies-action@v1.4.1
+              uses: gregsdennis/dependencies-action@v1.4.2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
