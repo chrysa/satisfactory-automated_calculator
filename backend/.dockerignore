@@ -1,0 +1,17 @@
+# Managed by conformity pass — keep build context lean
+.git
+.github
+node_modules
+__pycache__/
+*.py[cod]
+.venv
+venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.env
+.env.*
+*.pem
+.DS_Store
+.vscode
+.idea
