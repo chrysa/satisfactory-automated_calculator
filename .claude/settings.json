@@ -65,6 +65,14 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/ape/ape_hook.py --spec .claude/ape/ape-transform-v2.md"
+          }
+        ]
       }
     ],
     "Notification": [
