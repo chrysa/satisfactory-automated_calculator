@@ -53,3 +53,19 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # ── Entrypoint: migrate then serve ───────────────────────────────────────────
 CMD ["sh", "-c", "alembic upgrade head && uvicorn sat_backend.main:app --host 0.0.0.0 --port 8000"]
+
+# ── Dev: production image + test/lint/debug tooling ──────────────────────────
+FROM production AS dev
+
+USER root
+
+WORKDIR /app/backend
+
+# Editable install with dev extras (pytest, pytest-asyncio, pytest-cov, ruff)
+# so the mounted source is testable/lintable in place. Installed as root; the
+# container runs tooling as the unprivileged appuser.
+RUN pip install --no-cache-dir -e ".[dev]"
+
+USER appuser
+
+CMD ["pytest", "-q"]
