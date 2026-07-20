@@ -80,3 +80,11 @@ repos:
     - perf
     - revert
     - ci
+- repo: local
+  hooks:
+  - id: gs-syntax-check
+    name: gs-syntax-check
+    entry: node scripts/check-syntax.js
+    language: system
+    files: \.gs$
+    pass_filenames: false

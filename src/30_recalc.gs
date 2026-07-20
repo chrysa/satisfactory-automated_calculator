@@ -55,7 +55,7 @@ function SAT_showBottleneckReport() {
   }
 }
 
-
+/**
  * Layout v3.4 : stats gauche (B5:B15), tableaux droite (E6:H22), graphiques col F+H ligne 40.
  */
 function _refreshDashboard(stats) {
