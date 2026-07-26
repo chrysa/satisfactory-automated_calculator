@@ -49,8 +49,11 @@ repos:
   - id: react-console-error-detection
   - id: ts-unreachable-code
   - id: import-no-relative-parent
+  - id: claude-skill-frontmatter
+  - id: claude-agent-frontmatter
+  - id: claude-mcp-config
   repo: https://github.com/chrysa/pre-commit-tools
-  rev: v0.1.1-97
+  rev: v0.1.1-98
 - repo: https://github.com/igorshubovych/markdownlint-cli
   rev: v0.49.1
   hooks:
